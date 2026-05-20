@@ -59,3 +59,28 @@ def test_low_information_web_followup_builds_verification_query(monkeypatch) -> 
     assert "1994 1998 2014" in seen["question"]
     assert "national football team FIFA World Cup record" in seen["question"]
     assert "Nigeria's highest World Cup finish" in seen["expected_answer"]
+
+
+def test_check_and_find_out_routes_to_web_tool(monkeypatch) -> None:
+    service = RagService()
+    service.last_user_message = "which world cup did the nigerian team place the highest"
+    service.last_answer = "The current corpus does not contain enough information."
+    seen: dict[str, str] = {}
+
+    def fake_answer(question: str, expected_answer: str | None = None) -> ToolAnswer:
+        seen["question"] = question
+        seen["expected_answer"] = expected_answer or ""
+        return ToolAnswer(
+            tool_name="web_search",
+            answer="Web search checked the previous question.",
+            citations=[{"table": "web_search", "record_id": "https://example.com"}],
+            diagnostics={"provider": "test", "results": 1},
+        )
+
+    monkeypatch.setattr(web_search_module.web_search_tool, "answer", fake_answer)
+
+    response = service.answer(ChatRequest(message="check and find out"))
+
+    assert response.tool_calls[0]["name"] == "web_search"
+    assert "nigerian team" in seen["question"]
+    assert "FIFA World Cup record results history" in seen["question"]

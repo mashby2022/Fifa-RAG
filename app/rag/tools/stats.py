@@ -42,6 +42,12 @@ PERFORMANCE_RANKS = {
     "group stage": 2,
 }
 
+TEAM_ALIASES = {
+    "nigerian": "Nigeria",
+    "nigerian team": "Nigeria",
+    "super eagles": "Nigeria",
+}
+
 
 @dataclass
 class ToolAnswer:
@@ -273,6 +279,9 @@ class DuckDBStatsTool:
 
     def _team_from_question(self, question: str) -> str | None:
         lowered = _normalized(question)
+        for alias, team in TEAM_ALIASES.items():
+            if _contains_normalized(lowered, alias):
+                return team
         teams = self._table_rows("teams") or self._table_rows("qualified_teams")
         aliases = [
             (row.get("team_name", ""), row.get("team_code", ""))

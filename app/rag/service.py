@@ -157,13 +157,17 @@ def _is_web_check_followup(message: str) -> bool:
         "make sure",
     )
     web_terms = ("web", "online", "search")
-    return any(term in lowered for term in web_terms) and any(term in lowered for term in low_information_terms)
+    is_short_followup = len(lowered.split()) <= 6 and any(term in lowered for term in low_information_terms)
+    has_web_language = any(term in lowered for term in web_terms) and any(term in lowered for term in low_information_terms)
+    return is_short_followup or has_web_language
 
 
 def _verification_query(previous_question: str, previous_answer: str) -> str:
     team_finish_query = _team_finish_verification_query(previous_answer)
     if team_finish_query:
         return team_finish_query
+    if "current corpus does not contain enough information" in previous_answer.lower():
+        return f"{previous_question} FIFA World Cup record results history"
     answer = previous_answer.replace("'", "")
     question = previous_question.replace("'", "")
     query = f"{question} {answer}"

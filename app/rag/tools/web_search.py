@@ -17,6 +17,7 @@ EXPLICIT_WEB_TERMS = {
     "search the web",
     "look online",
     "confirm online",
+    "check and find out",
 }
 
 

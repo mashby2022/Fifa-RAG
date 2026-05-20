@@ -53,9 +53,12 @@ def test_stats_tool_answers_team_best_finish_from_qualified_teams(tmp_path: Path
 
     tool = DuckDBStatsTool(db_path=str(tmp_path / "missing.duckdb"), raw_data_dir=str(raw))
     answer = tool.maybe_answer("which world cup did Nigeria place the highest")
+    demonym_answer = tool.maybe_answer("which world cup did the nigerian team place the highest")
 
     assert answer is not None
+    assert demonym_answer is not None
     assert "round of 16" in answer.answer
+    assert "round of 16" in demonym_answer.answer
     assert "1994 FIFA Men's World Cup" in answer.answer
     assert "1999 FIFA Women's World Cup" not in answer.answer
     assert answer.diagnostics["operation"] == "team_best_finish"
