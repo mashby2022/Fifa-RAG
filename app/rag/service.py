@@ -1,3 +1,5 @@
+import re
+
 from app.core.config import settings
 from app.rag.generator import generate_answer
 from app.rag.query_parser import parse_query
@@ -159,9 +161,22 @@ def _is_web_check_followup(message: str) -> bool:
 
 
 def _verification_query(previous_question: str, previous_answer: str) -> str:
+    team_finish_query = _team_finish_verification_query(previous_answer)
+    if team_finish_query:
+        return team_finish_query
     answer = previous_answer.replace("'", "")
     question = previous_question.replace("'", "")
     query = f"{question} {answer}"
     if "highest world cup finish" in answer.lower() or "best finish" in answer.lower():
         query += " FIFA World Cup record results history"
     return " ".join(query.split())
+
+
+def _team_finish_verification_query(previous_answer: str) -> str | None:
+    match = re.search(r"^(.+?)'s highest World Cup finish.*? was ([^,]+),", previous_answer)
+    if not match:
+        return None
+    team = match.group(1)
+    finish = match.group(2)
+    years = " ".join(re.findall(r"\b(19[3-9][0-9]|20[0-9][0-9])\b", previous_answer))
+    return f"{team} national football team FIFA World Cup record {finish} {years}".strip()

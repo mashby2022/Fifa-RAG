@@ -9,6 +9,7 @@ from app.rag.tools.stats import ToolAnswer
 
 WEB_TERMS = {"latest", "current", "today", "news", "press", "article", "web", "search"}
 EXCLUDED_DOMAINS = ["facebook.com", "instagram.com", "x.com", "twitter.com", "tiktok.com", "punchng.com"]
+TRUSTED_VERIFICATION_DOMAINS = ["fifa.com", "wikipedia.org", "rsssf.org", "worldcupbrackets.info", "statbunker.com"]
 EXPLICIT_WEB_TERMS = {
     "check the web",
     "web search",
@@ -59,6 +60,8 @@ class WebSearchTool:
             "include_answer": True,
             "exclude_domains": EXCLUDED_DOMAINS,
         }
+        if expected_answer:
+            payload["include_domains"] = TRUSTED_VERIFICATION_DOMAINS
         with httpx.Client(timeout=self.timeout_seconds) as client:
             response = client.post(self.url, json=payload)
         response.raise_for_status()

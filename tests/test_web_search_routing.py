@@ -56,6 +56,6 @@ def test_low_information_web_followup_builds_verification_query(monkeypatch) -> 
     assert response.tool_calls[0]["name"] == "web_search"
     assert "Nigeria" in seen["question"]
     assert "round of 16" in seen["question"]
-    assert "1994 FIFA" in seen["question"]
-    assert "FIFA World Cup record results history" in seen["question"]
+    assert "1994 1998 2014" in seen["question"]
+    assert "national football team FIFA World Cup record" in seen["question"]
     assert "Nigeria's highest World Cup finish" in seen["expected_answer"]
