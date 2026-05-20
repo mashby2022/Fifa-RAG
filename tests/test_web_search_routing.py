@@ -10,8 +10,9 @@ def test_explicit_web_check_routes_to_web_tool_with_previous_context(monkeypatch
     service.last_answer = "Argentina won the 2022 FIFA World Cup."
     seen: dict[str, str] = {}
 
-    def fake_answer(question: str) -> ToolAnswer:
+    def fake_answer(question: str, expected_answer: str | None = None) -> ToolAnswer:
         seen["question"] = question
+        seen["expected_answer"] = expected_answer or ""
         return ToolAnswer(
             tool_name="web_search",
             answer="Web confirms Argentina won the 2022 FIFA World Cup.",
@@ -25,6 +26,7 @@ def test_explicit_web_check_routes_to_web_tool_with_previous_context(monkeypatch
 
     assert response.tool_calls[0]["name"] == "web_search"
     assert "Argentina won the 2022 FIFA World Cup" in seen["question"]
+    assert "Argentina won the 2022 FIFA World Cup" in seen["expected_answer"]
     assert response.retrieval_diagnostics["tool_route"] == "web_search"
 
 
@@ -37,8 +39,9 @@ def test_low_information_web_followup_builds_verification_query(monkeypatch) -> 
     )
     seen: dict[str, str] = {}
 
-    def fake_answer(question: str) -> ToolAnswer:
+    def fake_answer(question: str, expected_answer: str | None = None) -> ToolAnswer:
         seen["question"] = question
+        seen["expected_answer"] = expected_answer or ""
         return ToolAnswer(
             tool_name="web_search",
             answer="Web confirms Nigeria reached the round of 16 in 1994, 1998, and 2014.",
@@ -55,3 +58,4 @@ def test_low_information_web_followup_builds_verification_query(monkeypatch) -> 
     assert "round of 16" in seen["question"]
     assert "1994 FIFA" in seen["question"]
     assert "FIFA World Cup record results history" in seen["question"]
+    assert "Nigeria's highest World Cup finish" in seen["expected_answer"]

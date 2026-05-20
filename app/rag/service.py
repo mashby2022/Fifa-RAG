@@ -23,7 +23,8 @@ class RagService:
 
         if is_explicit_web_request(request.message):
             web_query = self._web_followup_query(request.message)
-            web_answer = web_search_tool.answer(web_query)
+            expected_answer = self.last_answer if self.last_answer and _is_web_check_followup(request.message) else None
+            web_answer = web_search_tool.answer(web_query, expected_answer=expected_answer)
             if web_answer:
                 response = self._tool_response(parsed, web_answer)
                 return self._remember_and_return(

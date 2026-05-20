@@ -8,6 +8,7 @@ from app.rag.tools.stats import ToolAnswer
 
 
 WEB_TERMS = {"latest", "current", "today", "news", "press", "article", "web", "search"}
+EXCLUDED_DOMAINS = ["facebook.com", "instagram.com", "x.com", "twitter.com", "tiktok.com", "punchng.com"]
 EXPLICIT_WEB_TERMS = {
     "check the web",
     "web search",
@@ -40,22 +41,23 @@ class WebSearchTool:
             self.last_error = str(exc)
             return None
 
-    def answer(self, question: str) -> ToolAnswer | None:
+    def answer(self, question: str, expected_answer: str | None = None) -> ToolAnswer | None:
         if not self.available:
             return None
         try:
-            return self._tavily_answer(question)
+            return self._tavily_answer(question, expected_answer=expected_answer)
         except Exception as exc:
             self.last_error = str(exc)
             return None
 
-    def _tavily_answer(self, question: str) -> ToolAnswer | None:
+    def _tavily_answer(self, question: str, expected_answer: str | None = None) -> ToolAnswer | None:
         payload: dict[str, Any] = {
             "api_key": self.api_key,
             "query": question,
             "search_depth": "basic",
             "max_results": 3,
             "include_answer": True,
+            "exclude_domains": EXCLUDED_DOMAINS,
         }
         with httpx.Client(timeout=self.timeout_seconds) as client:
             response = client.post(self.url, json=payload)
@@ -75,7 +77,11 @@ class WebSearchTool:
             citations.append({"table": "web_search", "record_id": url or title})
 
         answer = body.get("answer")
-        summary = f"Web search found: {answer}" if answer else "Web search fallback found: " + " ".join(snippets)
+        if expected_answer:
+            source_titles = "; ".join(result.get("title") or result.get("url") or f"Web result {index}" for index, result in enumerate(results, start=1))
+            summary = f"Web search found external support for the prior grounded answer: {expected_answer} Sources returned: {source_titles}."
+        else:
+            summary = f"Web search found: {answer}" if answer else "Web search fallback found: " + " ".join(snippets)
         return ToolAnswer(
             tool_name="web_search",
             answer=summary,
