@@ -3,7 +3,7 @@ from app.rag.generator import generate_answer
 from app.rag.query_parser import parse_query
 from app.rag.reranker import maybe_rerank
 from app.rag.tools.stats import ToolAnswer, stats_tool
-from app.rag.tools.web_search import web_search_tool
+from app.rag.tools.web_search import is_explicit_web_request, web_search_tool
 from app.rag.tools.worldcup_workflow import worldcup_workflow_tool
 from app.rag.vector_store import vector_store
 from app.schemas.api import ChatRequest, ChatResponse, Citation
@@ -11,21 +11,40 @@ from app.schemas.documents import SourceRef
 
 
 class RagService:
+    def __init__(self) -> None:
+        self.last_user_message: str | None = None
+        self.last_answer: str | None = None
+
     def answer(self, request: ChatRequest) -> ChatResponse:
         parsed = parse_query(request.message, request.query_mode)
         if parsed.invalid_reason:
             response = generate_answer(parsed, [])
-            return self._with_diagnostics(response, parsed, 0, {"reranker": "skipped"})
+            return self._remember_and_return(request.message, self._with_diagnostics(response, parsed, 0, {"reranker": "skipped"}))
+
+        if is_explicit_web_request(request.message):
+            web_query = self._web_followup_query(request.message)
+            web_answer = web_search_tool.answer(web_query)
+            if web_answer:
+                response = self._tool_response(parsed, web_answer)
+                return self._remember_and_return(
+                    request.message,
+                    self._with_diagnostics(
+                        response,
+                        parsed,
+                        0,
+                        {"reranker": "skipped", "tool_route": web_answer.tool_name, "web_query": web_query},
+                    ),
+                )
 
         workflow_answer = worldcup_workflow_tool.maybe_answer(request.message)
         if workflow_answer:
             response = self._tool_response(parsed, workflow_answer)
-            return self._with_diagnostics(response, parsed, 0, {"reranker": "skipped", "tool_route": workflow_answer.tool_name})
+            return self._remember_and_return(request.message, self._with_diagnostics(response, parsed, 0, {"reranker": "skipped", "tool_route": workflow_answer.tool_name}))
 
         tool_answer = stats_tool.maybe_answer(request.message)
         if tool_answer:
             response = self._tool_response(parsed, tool_answer)
-            return self._with_diagnostics(response, parsed, 0, {"reranker": "skipped", "tool_route": tool_answer.tool_name})
+            return self._remember_and_return(request.message, self._with_diagnostics(response, parsed, 0, {"reranker": "skipped", "tool_route": tool_answer.tool_name}))
 
         retrieval_query = parsed.query_rewrite or request.message
         initial_k = max(request.top_k, settings.initial_retrieval_k)
@@ -34,10 +53,10 @@ class RagService:
             web_answer = web_search_tool.maybe_answer(request.message)
             if web_answer:
                 response = self._tool_response(parsed, web_answer)
-                return self._with_diagnostics(response, parsed, 0, {"reranker": "skipped", "tool_route": web_answer.tool_name})
+                return self._remember_and_return(request.message, self._with_diagnostics(response, parsed, 0, {"reranker": "skipped", "tool_route": web_answer.tool_name}))
         retrieved, rerank_diagnostics = maybe_rerank(request.message, candidates, request.top_k)
         response = generate_answer(parsed, retrieved)
-        return self._with_diagnostics(response, parsed, len(candidates), rerank_diagnostics)
+        return self._remember_and_return(request.message, self._with_diagnostics(response, parsed, len(candidates), rerank_diagnostics))
 
     @property
     def document_count(self) -> int:
@@ -90,6 +109,16 @@ class RagService:
             agent_worklog=tool_answer.worklog,
             artifacts=tool_answer.artifacts,
         )
+
+    def _web_followup_query(self, message: str) -> str:
+        if self.last_answer:
+            return f"{self.last_user_message or ''} {self.last_answer} {message}".strip()
+        return message
+
+    def _remember_and_return(self, message: str, response: ChatResponse) -> ChatResponse:
+        self.last_user_message = message
+        self.last_answer = response.answer
+        return response
 
     @staticmethod
     def _with_diagnostics(

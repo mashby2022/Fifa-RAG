@@ -8,6 +8,14 @@ from app.rag.tools.stats import ToolAnswer
 
 
 WEB_TERMS = {"latest", "current", "today", "news", "press", "article", "web", "search"}
+EXPLICIT_WEB_TERMS = {
+    "check the web",
+    "web search",
+    "run a web search",
+    "search the web",
+    "look online",
+    "confirm online",
+}
 
 
 @dataclass
@@ -25,6 +33,15 @@ class WebSearchTool:
 
     def maybe_answer(self, question: str) -> ToolAnswer | None:
         if not self.available or not _looks_like_web_question(question):
+            return None
+        try:
+            return self._tavily_answer(question)
+        except Exception as exc:
+            self.last_error = str(exc)
+            return None
+
+    def answer(self, question: str) -> ToolAnswer | None:
+        if not self.available:
             return None
         try:
             return self._tavily_answer(question)
@@ -66,6 +83,11 @@ class WebSearchTool:
 def _looks_like_web_question(question: str) -> bool:
     lowered = question.lower()
     return any(term in lowered for term in WEB_TERMS)
+
+
+def is_explicit_web_request(question: str) -> bool:
+    lowered = question.lower()
+    return any(term in lowered for term in EXPLICIT_WEB_TERMS)
 
 
 web_search_tool = WebSearchTool()
