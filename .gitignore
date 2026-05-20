@@ -11,9 +11,14 @@ htmlcov/
 dist/
 build/
 data/raw/*
+data/processed/*
+data/indexes/*
+data/__indexes/*
+data/___All_Errors.txt
 data/normalized/*
 data/generated_docs/*
 !data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/indexes/.gitkeep
 !data/normalized/.gitkeep
 !data/generated_docs/.gitkeep
-

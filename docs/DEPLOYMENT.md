@@ -51,7 +51,8 @@ docker run --env-file .env -p 8000:8000 worldcup-rag-api
 
 ## Production Notes
 
-- Keep `VECTOR_BACKEND=memory` for the first hosted mock-data demo.
+- Keep `VECTOR_BACKEND=memory` for the first hosted data demo.
+- Tom's local data bundle is not committed to Git. For Render, use the GitHub fallback until Phase 5 packages the data as a release artifact or object-store download.
 - Move to `VECTOR_BACKEND=milvus` once a hosted Milvus/Zilliz endpoint is available.
 - Add the final Lovable domains to `CORS_ORIGINS`.
 - Store `NVIDIA_API_KEY` only in Render, never in Lovable or GitHub.

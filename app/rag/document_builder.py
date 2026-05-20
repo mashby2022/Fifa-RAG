@@ -6,6 +6,7 @@ from collections import defaultdict
 from pathlib import Path
 from urllib.request import urlopen
 
+from app.core.config import settings
 from app.schemas.documents import SourceRef, WorldCupDocument
 
 FJELSTUL_BASE = "https://raw.githubusercontent.com/jfjelstul/worldcup/master/data-csv"
@@ -17,6 +18,11 @@ FJELSTUL_FILES = {
     "team_appearances": f"{FJELSTUL_BASE}/team_appearances.csv",
     "tournament_standings": f"{FJELSTUL_BASE}/tournament_standings.csv",
     "award_winners": f"{FJELSTUL_BASE}/award_winners.csv",
+    "players": f"{FJELSTUL_BASE}/players.csv",
+    "player_appearances": f"{FJELSTUL_BASE}/player_appearances.csv",
+    "goals": f"{FJELSTUL_BASE}/goals.csv",
+    "squads": f"{FJELSTUL_BASE}/squads.csv",
+    "qualified_teams": f"{FJELSTUL_BASE}/qualified_teams.csv",
 }
 
 OPENFOOTBALL_FILES = {
@@ -27,20 +33,34 @@ OPENFOOTBALL_FILES = {
 
 
 def build_worldcup_documents(output_path: Path) -> list[WorldCupDocument]:
-    tables = {name: _read_csv_url(url) for name, url in FJELSTUL_FILES.items()}
+    tables = {name: _load_table(name, settings.local_data_dir) for name in FJELSTUL_FILES}
+    codebook_datasets = _load_table("codebook_datasets", settings.local_data_dir)
+    codebook_variables = _load_table("codebook_variables", settings.local_data_dir)
     documents: list[WorldCupDocument] = []
 
     documents.extend(_build_tournament_docs(tables["tournaments"]))
-    documents.extend(_build_match_docs(tables["matches"]))
+    documents.extend(_build_match_docs(tables["matches"], tables["goals"]))
     team_tournament_docs, team_timeline_docs = _build_team_performance_docs(
-        tables["team_appearances"], tables["tournament_standings"]
+        tables["team_appearances"], tables["tournament_standings"], tables["qualified_teams"]
     )
     documents.extend(team_tournament_docs)
     documents.extend(team_timeline_docs)
     documents.extend(_build_standing_docs(tables["tournament_standings"]))
     documents.extend(_build_tournament_standing_summaries(tables["tournament_standings"]))
     documents.extend(_build_award_docs(tables["award_winners"]))
-    documents.extend(_build_openfootball_docs())
+    documents.extend(
+        _build_player_profile_docs(
+            tables["players"],
+            tables["player_appearances"],
+            tables["goals"],
+            tables["squads"],
+            tables["award_winners"],
+        )
+    )
+    documents.extend(_build_goal_story_docs(tables["goals"], tables["award_winners"]))
+    documents.extend(_build_codebook_docs(codebook_datasets, codebook_variables))
+    if settings.include_openfootball_docs:
+        documents.extend(_build_openfootball_docs())
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8") as handle:
@@ -48,6 +68,56 @@ def build_worldcup_documents(output_path: Path) -> list[WorldCupDocument]:
             handle.write(json.dumps(doc.model_dump(), ensure_ascii=True) + "\n")
 
     return documents
+
+
+def _load_table(name: str, local_data_dir: str) -> list[dict[str, str]]:
+    data_dir = Path(local_data_dir)
+    if name == "codebook_datasets":
+        local_csv = data_dir / "raw" / "codebook" / "datasets.csv"
+        return _read_csv_path(local_csv) if local_csv.exists() else []
+    if name == "codebook_variables":
+        local_csv = data_dir / "raw" / "codebook" / "variables.csv"
+        return _read_csv_path(local_csv) if local_csv.exists() else []
+
+    local_parquet = data_dir / "processed" / f"{name}.parquet"
+    if local_parquet.exists():
+        parquet_rows = _read_parquet_path(local_parquet)
+        if parquet_rows:
+            return parquet_rows
+
+    local_csv = data_dir / "raw" / f"{name}.csv"
+    if local_csv.exists():
+        return _read_csv_path(local_csv)
+
+    url = FJELSTUL_FILES.get(name)
+    return _read_csv_url(url) if url else []
+
+
+def _read_csv_path(path: Path) -> list[dict[str, str]]:
+    with path.open("r", encoding="utf-8-sig", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def _read_parquet_path(path: Path) -> list[dict[str, str]]:
+    try:
+        import pandas as pd
+    except ImportError:
+        return []
+
+    frame = pd.read_parquet(path)
+    frame = frame.fillna("")
+    return [
+        {str(key): _stringify_value(value) for key, value in row.items()}
+        for row in frame.to_dict(orient="records")
+    ]
+
+
+def _stringify_value(value: object) -> str:
+    if hasattr(value, "isoformat"):
+        return str(value.isoformat())
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value)
 
 
 def _read_csv_url(url: str) -> list[dict[str, str]]:
@@ -109,7 +179,11 @@ def _build_tournament_docs(rows: list[dict[str, str]]) -> list[WorldCupDocument]
     return documents
 
 
-def _build_match_docs(rows: list[dict[str, str]]) -> list[WorldCupDocument]:
+def _build_match_docs(rows: list[dict[str, str]], goals: list[dict[str, str]]) -> list[WorldCupDocument]:
+    goals_by_match: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for goal in goals:
+        goals_by_match[goal["match_id"]].append(goal)
+
     documents: list[WorldCupDocument] = []
     for row in rows:
         year = _year(row)
@@ -126,11 +200,18 @@ def _build_match_docs(rows: list[dict[str, str]]) -> list[WorldCupDocument]:
             winner_sentence = f" {row['away_team_name']} won the match against {row['home_team_name']}."
         elif row.get("draw") == "1":
             winner_sentence = " The match was recorded as a draw."
+        scorer_sentence = _match_scorer_sentence(goals_by_match.get(row["match_id"], []))
         text = (
             f"{row['match_name']} was a {row['stage_name']} match at the {row['tournament_name']} "
             f"on {row['match_date']}. The score was {row['score']}{extra_time}: "
             f"{row['home_team_name']} {row['home_team_score']}, {row['away_team_name']} {row['away_team_score']}. "
-            f"The result was {row['result']}.{winner_sentence} It was played at {location}.{penalties}"
+            f"The result was {row['result']}.{winner_sentence}{scorer_sentence} "
+            f"It was played at {location}.{penalties}"
+        )
+        source_refs = [SourceRef(table="matches", record_id=row["match_id"])]
+        source_refs.extend(
+            SourceRef(table="goals", record_id=goal["goal_id"])
+            for goal in goals_by_match.get(row["match_id"], [])[:12]
         )
         documents.append(
             WorldCupDocument(
@@ -148,8 +229,9 @@ def _build_match_docs(rows: list[dict[str, str]]) -> list[WorldCupDocument]:
                     "date": row["match_date"],
                     "stadium": row["stadium_name"],
                     "city": row["city_name"],
+                    "scorers": [_player_name(goal) for goal in goals_by_match.get(row["match_id"], [])],
                 },
-                source_refs=[SourceRef(table="matches", record_id=row["match_id"])],
+                source_refs=source_refs,
             )
         )
     return documents
@@ -210,11 +292,28 @@ def _build_tournament_standing_summaries(rows: list[dict[str, str]]) -> list[Wor
     return documents
 
 
+def _match_scorer_sentence(goals: list[dict[str, str]]) -> str:
+    if not goals:
+        return ""
+    scorer_bits = []
+    for goal in goals:
+        player = _player_name(goal)
+        minute = goal.get("minute_label", "")
+        team = goal.get("team_name", "")
+        qualifier = " own goal" if goal.get("own_goal") == "1" else ""
+        qualifier = " penalty" if goal.get("penalty") == "1" else qualifier
+        scorer_bits.append(f"{player} ({team}, {minute}{qualifier})")
+    return f" Goals were scored by: {'; '.join(scorer_bits)}."
+
+
 def _build_team_performance_docs(
-    appearances: list[dict[str, str]], standings: list[dict[str, str]]
+    appearances: list[dict[str, str]], standings: list[dict[str, str]], qualified_teams: list[dict[str, str]]
 ) -> tuple[list[WorldCupDocument], list[WorldCupDocument]]:
     standing_positions = {
         (row["tournament_id"], row["team_id"]): int(row["position"]) for row in standings
+    }
+    performances = {
+        (row["tournament_id"], row["team_id"]): row["performance"] for row in qualified_teams
     }
     by_team_tournament: dict[tuple[str, str], list[dict[str, str]]] = defaultdict(list)
     for row in appearances:
@@ -232,7 +331,7 @@ def _build_team_performance_docs(
         draws = sum(int(row["draw"]) for row in rows)
         goals_for = sum(int(row["goals_for"]) for row in rows)
         goals_against = sum(int(row["goals_against"]) for row in rows)
-        stage_reached = _stage_reached(row["stage_name"] for row in rows)
+        stage_reached = performances.get((tournament_id, team_id)) or _stage_reached(row["stage_name"] for row in rows)
         position = standing_positions.get((tournament_id, team_id))
         placement = f" and finished {_position_label(position)}" if position else ""
         text = (
@@ -299,6 +398,241 @@ def _build_team_performance_docs(
         )
 
     return tournament_docs, timeline_docs
+
+
+def _build_player_profile_docs(
+    players: list[dict[str, str]],
+    appearances: list[dict[str, str]],
+    goals: list[dict[str, str]],
+    squads: list[dict[str, str]],
+    awards: list[dict[str, str]],
+) -> list[WorldCupDocument]:
+    player_names: dict[str, str] = {}
+    player_tournament_lists: dict[str, str] = {}
+    player_female: dict[str, bool] = {}
+    for row in players:
+        player_names[row["player_id"]] = _player_name(row)
+        player_tournament_lists[row["player_id"]] = row.get("list_tournaments", "")
+        player_female[row["player_id"]] = row.get("female") == "1"
+
+    appearance_stats: dict[str, dict[str, object]] = defaultdict(lambda: _empty_player_stat())
+    for row in appearances:
+        stat = appearance_stats[row["player_id"]]
+        stat["appearances"] = int(stat["appearances"]) + 1
+        stat["starts"] = int(stat["starts"]) + int(row.get("starter", "0") or 0)
+        stat["substitutes"] = int(stat["substitutes"]) + int(row.get("substitute", "0") or 0)
+        stat["teams"].add(row["team_name"])
+        stat["tournaments"].add(_year(row))
+        stat["source_refs"].append(SourceRef(table="player_appearances", record_id=row["key_id"]))
+        player_names.setdefault(row["player_id"], _player_name(row))
+
+    squad_stats: dict[str, dict[str, object]] = defaultdict(lambda: _empty_player_stat())
+    for row in squads:
+        stat = squad_stats[row["player_id"]]
+        stat["teams"].add(row["team_name"])
+        stat["tournaments"].add(_year(row))
+        stat["positions"].add(row.get("position_name", ""))
+        stat["source_refs"].append(SourceRef(table="squads", record_id=row["key_id"]))
+        player_names.setdefault(row["player_id"], _player_name(row))
+
+    goal_stats: dict[str, dict[str, object]] = defaultdict(lambda: _empty_player_stat())
+    for row in goals:
+        stat = goal_stats[row["player_id"]]
+        if row.get("own_goal") != "1":
+            stat["goals"] = int(stat["goals"]) + 1
+        if row.get("penalty") == "1":
+            stat["penalty_goals"] = int(stat["penalty_goals"]) + 1
+        stat["teams"].add(row.get("player_team_name") or row.get("team_name", ""))
+        stat["tournaments"].add(_year(row))
+        stat["source_refs"].append(SourceRef(table="goals", record_id=row["goal_id"]))
+        player_names.setdefault(row["player_id"], _player_name(row))
+
+    award_stats: dict[str, dict[str, object]] = defaultdict(lambda: _empty_player_stat())
+    for row in awards:
+        stat = award_stats[row["player_id"]]
+        stat["awards"].append(f"{row['award_name']} ({_year(row)})")
+        stat["teams"].add(row["team_name"])
+        stat["tournaments"].add(_year(row))
+        stat["source_refs"].append(SourceRef(table="award_winners", record_id=row["key_id"]))
+        player_names.setdefault(row["player_id"], _player_name(row))
+
+    documents: list[WorldCupDocument] = []
+    for player_id, player in player_names.items():
+        stat = _merge_player_stats(
+            appearance_stats.get(player_id),
+            squad_stats.get(player_id),
+            goal_stats.get(player_id),
+            award_stats.get(player_id),
+        )
+        appearances_count = int(stat["appearances"])
+        goals_count = int(stat["goals"])
+        awards_list = list(stat["awards"])
+        tournaments = sorted(int(year) for year in stat["tournaments"] if int(year) > 0)
+        listed_tournaments = player_tournament_lists.get(player_id)
+        if not _is_notable_player(appearances_count, goals_count, awards_list, tournaments, listed_tournaments):
+            continue
+
+        teams = sorted(str(team) for team in stat["teams"] if team)
+        positions = sorted(str(position) for position in stat["positions"] if position and position != "not applicable")
+        tournament_text = ", ".join(str(year) for year in tournaments) or listed_tournaments or "not available"
+        award_text = "; ".join(awards_list) if awards_list else "no individual awards in the award winners table"
+        text = (
+            f"{player} World Cup profile: tournaments {tournament_text}. "
+            f"Teams represented: {', '.join(teams) if teams else 'not available'}. "
+            f"Recorded appearances since 1970: {appearances_count}, including {stat['starts']} starts "
+            f"and {stat['substitutes']} substitute appearances. "
+            f"Recorded goals: {goals_count}. Awards: {award_text}."
+        )
+        if positions:
+            text += f" Listed squad positions include {', '.join(positions)}."
+
+        documents.append(
+            WorldCupDocument(
+                doc_id=f"fjelstul:player-profile:{player_id}",
+                entity_type="player",
+                competition="women" if player_female.get(player_id, False) else "men",
+                tournament_year=max(tournaments) if tournaments else 0,
+                title=f"{player} World Cup Profile",
+                text=text,
+                metadata={
+                    "source": "tom-local-fjelstul",
+                    "player": player,
+                    "teams": teams,
+                    "years": tournaments,
+                    "goals": goals_count,
+                    "appearances": appearances_count,
+                    "awards": awards_list,
+                },
+                source_refs=list(stat["source_refs"])[:30],
+            )
+        )
+    return documents
+
+
+def _build_goal_story_docs(goals: list[dict[str, str]], awards: list[dict[str, str]]) -> list[WorldCupDocument]:
+    documents: list[WorldCupDocument] = []
+    goals_by_tournament_player: dict[tuple[str, str], list[dict[str, str]]] = defaultdict(list)
+    for goal in goals:
+        if goal.get("own_goal") == "1":
+            continue
+        goals_by_tournament_player[(goal["tournament_id"], goal["player_id"])].append(goal)
+
+    golden_boots = {
+        (row["tournament_id"], row["player_id"])
+        for row in awards
+        if row.get("award_name") == "Golden Boot"
+    }
+    leaders_by_tournament: dict[str, list[tuple[str, int, str, str]]] = defaultdict(list)
+    for (tournament_id, player_id), player_goals in goals_by_tournament_player.items():
+        first = player_goals[0]
+        player = _player_name(first)
+        count_goals = len(player_goals)
+        leaders_by_tournament[tournament_id].append((player, count_goals, first["team_name"], first["tournament_name"]))
+        if count_goals < 3 and (tournament_id, player_id) not in golden_boots:
+            continue
+        text = (
+            f"{player} scored {count_goals} goals for {first['team_name']} at the {first['tournament_name']}. "
+            f"Goal minutes: {', '.join(goal['minute_label'] for goal in player_goals[:20])}."
+        )
+        if (tournament_id, player_id) in golden_boots:
+            text += " This player is listed as a Golden Boot winner in the award winners table."
+        documents.append(
+            WorldCupDocument(
+                doc_id=f"fjelstul:goal-story:{tournament_id}:{player_id}",
+                entity_type="goal",
+                competition=_competition(first),
+                tournament_year=_year(first),
+                title=f"{player} goals at {first['tournament_name']}",
+                text=text,
+                metadata={
+                    "source": "tom-local-fjelstul",
+                    "player": player,
+                    "team": first["team_name"],
+                    "goals": count_goals,
+                    "award_signal": "Golden Boot" if (tournament_id, player_id) in golden_boots else "",
+                },
+                source_refs=[SourceRef(table="goals", record_id=goal["goal_id"]) for goal in player_goals[:20]],
+            )
+        )
+
+    for tournament_id, leaders in leaders_by_tournament.items():
+        if not leaders:
+            continue
+        sorted_leaders = sorted(leaders, key=lambda item: item[1], reverse=True)[:8]
+        tournament_name = sorted_leaders[0][3]
+        year = int(tournament_id.replace("WC-", ""))
+        text = "Top goal scorers in the " + tournament_name + ": " + "; ".join(
+            f"{player} ({team}) with {count_goals} goals" for player, count_goals, team, _ in sorted_leaders
+        ) + "."
+        documents.append(
+            WorldCupDocument(
+                doc_id=f"fjelstul:goal-leaders:{tournament_id}",
+                entity_type="goal",
+                competition="women" if "Women's" in tournament_name else "men",
+                tournament_year=year,
+                title=f"{tournament_name} Goal Leaders",
+                text=text,
+                metadata={"source": "tom-local-fjelstul", "leaders": [leader[0] for leader in sorted_leaders]},
+                source_refs=[SourceRef(table="goals", record_id=tournament_id)],
+            )
+        )
+    return documents
+
+
+def _build_codebook_docs(
+    datasets: list[dict[str, str]], variables: list[dict[str, str]]
+) -> list[WorldCupDocument]:
+    documents: list[WorldCupDocument] = []
+    dataset_labels = {row["dataset_id"]: row.get("dataset", "") for row in datasets}
+    for row in datasets:
+        dataset = row["dataset"]
+        text = f"Dataset: {dataset}. Label: {row.get('label', dataset)}. Description: {row['description']}"
+        documents.append(
+            WorldCupDocument(
+                doc_id=f"tom-codebook:dataset:{dataset}",
+                entity_type="schema",
+                competition="men",
+                tournament_year=0,
+                title=f"Codebook Dataset: {dataset}",
+                text=text,
+                metadata={
+                    "source": "tom-codebook",
+                    "doc_type": "dataset",
+                    "dataset": dataset,
+                    "label": row.get("label", dataset),
+                    "count_variables": row.get("count_variables", ""),
+                    "count_observations": row.get("count_observations", ""),
+                },
+                source_refs=[SourceRef(table="codebook/datasets", record_id=row["dataset_id"])],
+            )
+        )
+
+    for row in variables:
+        dataset = dataset_labels.get(row["dataset_id"], row["dataset_id"])
+        variable = row["variable"]
+        text = (
+            f"Variable: {variable}. Dataset: {dataset}. Type: {row['type']}. "
+            f"Description: {row['description']}"
+        )
+        documents.append(
+            WorldCupDocument(
+                doc_id=f"tom-codebook:variable:{dataset}:{variable}",
+                entity_type="schema",
+                competition="men",
+                tournament_year=0,
+                title=f"Codebook Variable: {dataset}.{variable}",
+                text=text,
+                metadata={
+                    "source": "tom-codebook",
+                    "doc_type": "variable",
+                    "dataset": dataset,
+                    "variable": variable,
+                    "type": row["type"],
+                },
+                source_refs=[SourceRef(table="codebook/variables", record_id=f"{row['dataset_id']}:{row['variable_id']}")],
+            )
+        )
+    return documents
 
 
 def _build_award_docs(rows: list[dict[str, str]]) -> list[WorldCupDocument]:
@@ -412,3 +746,43 @@ def _stage_reached(stages: object) -> str:
             best_stage = str(stage)
             best_score = score
     return best_stage
+
+
+def _empty_player_stat() -> dict[str, object]:
+    return {
+        "appearances": 0,
+        "starts": 0,
+        "substitutes": 0,
+        "goals": 0,
+        "penalty_goals": 0,
+        "teams": set(),
+        "tournaments": set(),
+        "positions": set(),
+        "awards": [],
+        "source_refs": [],
+    }
+
+
+def _merge_player_stats(*stats: dict[str, object] | None) -> dict[str, object]:
+    merged = _empty_player_stat()
+    for stat in stats:
+        if not stat:
+            continue
+        for key in ["appearances", "starts", "substitutes", "goals", "penalty_goals"]:
+            merged[key] = int(merged[key]) + int(stat[key])
+        for key in ["teams", "tournaments", "positions"]:
+            merged[key].update(stat[key])
+        merged["awards"].extend(stat["awards"])
+        merged["source_refs"].extend(stat["source_refs"])
+    return merged
+
+
+def _is_notable_player(
+    appearances: int,
+    goals: int,
+    awards: list[str],
+    tournaments: list[int],
+    listed_tournaments: str | None,
+) -> bool:
+    listed_count = len([item for item in (listed_tournaments or "").split(",") if item.strip()])
+    return bool(awards) or goals > 0 or appearances >= 8 or len(tournaments) >= 2 or listed_count >= 2

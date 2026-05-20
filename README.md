@@ -147,11 +147,12 @@ NVIDIA_API_KEY=<set-in-render-only>
 
 ## Data Integration
 
-Partner datasets should land in `data/raw/` and be normalized into generated document records under `data/generated_docs/`.
+Partner datasets should land in `data/raw/` and `data/processed/`, then be normalized into generated document records under `data/generated_docs/`.
 
 See [docs/DATA_CONTRACT.md](docs/DATA_CONTRACT.md).
+See [docs/TOM_DATA.md](docs/TOM_DATA.md) for Tom's delivered bundle.
 
-Current ingestion downloads from `jfjelstul/worldcup` and `openfootball/worldcup`:
+Current ingestion prefers Tom's local processed/raw files, then falls back to `jfjelstul/worldcup`:
 
 ```bash
 python scripts/ingest_dataset.py
