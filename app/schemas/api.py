@@ -28,6 +28,8 @@ class ChatResponse(BaseModel):
     query_rewrite: str | None = None
     layers_searched: list[str] = Field(default_factory=list)
     tool_calls: list[dict[str, object]] = Field(default_factory=list)
+    agent_worklog: list[str] = Field(default_factory=list)
+    artifacts: list[dict[str, object]] = Field(default_factory=list)
     retrieval_diagnostics: dict[str, object] = Field(default_factory=dict)
 
 

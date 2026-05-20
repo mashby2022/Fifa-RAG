@@ -4,6 +4,7 @@ from app.rag.query_parser import parse_query
 from app.rag.reranker import maybe_rerank
 from app.rag.tools.stats import ToolAnswer, stats_tool
 from app.rag.tools.web_search import web_search_tool
+from app.rag.tools.worldcup_workflow import worldcup_workflow_tool
 from app.rag.vector_store import vector_store
 from app.schemas.api import ChatRequest, ChatResponse, Citation
 from app.schemas.documents import SourceRef
@@ -15,6 +16,11 @@ class RagService:
         if parsed.invalid_reason:
             response = generate_answer(parsed, [])
             return self._with_diagnostics(response, parsed, 0, {"reranker": "skipped"})
+
+        workflow_answer = worldcup_workflow_tool.maybe_answer(request.message)
+        if workflow_answer:
+            response = self._tool_response(parsed, workflow_answer)
+            return self._with_diagnostics(response, parsed, 0, {"reranker": "skipped", "tool_route": workflow_answer.tool_name})
 
         tool_answer = stats_tool.maybe_answer(request.message)
         if tool_answer:
@@ -49,6 +55,7 @@ class RagService:
     def tool_status(self) -> dict[str, object]:
         return {
             "duckdb_stats": {"available": stats_tool.available, "backend": stats_tool.backend},
+            "worldcup_workflow": {"available": stats_tool.available, "backend": stats_tool.backend},
             "milvus_retrieval": {
                 "configured": settings.vector_backend == "milvus",
                 "runtime_backend": self.vector_runtime_backend,
@@ -80,6 +87,8 @@ class RagService:
             retrieved_context=[],
             filters=parsed.filters,
             tool_calls=[{"name": tool_answer.tool_name, **tool_answer.diagnostics}],
+            agent_worklog=tool_answer.worklog,
+            artifacts=tool_answer.artifacts,
         )
 
     @staticmethod

@@ -29,6 +29,8 @@ class ToolAnswer:
     answer: str
     citations: list[dict[str, str]]
     diagnostics: dict[str, Any] = field(default_factory=dict)
+    worklog: list[str] = field(default_factory=list)
+    artifacts: list[dict[str, Any]] = field(default_factory=list)
 
 
 class DuckDBStatsTool:
