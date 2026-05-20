@@ -68,3 +68,32 @@ def test_stats_tool_answers_team_best_finish_from_qualified_teams(tmp_path: Path
     assert overall is not None
     assert "1999 FIFA Women's World Cup" in overall.answer
     assert "men's tournament" in overall.answer
+
+
+def test_stats_tool_prefers_standings_for_usa_womens_best_finish(tmp_path: Path) -> None:
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    (raw / "qualified_teams.csv").write_text(
+        "key_id,tournament_id,tournament_name,team_id,team_name,team_code,count_matches,performance\n"
+        "253,WC-1991,1991 FIFA Women's World Cup,T-83,United States,USA,6,final\n"
+        "289,WC-1995,1995 FIFA Women's World Cup,T-83,United States,USA,6,third-place match\n"
+        "593,WC-2019,2019 FIFA Women's World Cup,T-83,United States,USA,7,final\n",
+        encoding="utf-8",
+    )
+    (raw / "tournament_standings.csv").write_text(
+        "key_id,tournament_id,tournament_name,position,team_id,team_name,team_code\n"
+        "57,WC-1991,1991 FIFA Women's World Cup,1,T-83,United States,USA\n"
+        "67,WC-1995,1995 FIFA Women's World Cup,3,T-83,United States,USA\n"
+        "113,WC-2019,2019 FIFA Women's World Cup,1,T-83,United States,USA\n",
+        encoding="utf-8",
+    )
+
+    tool = DuckDBStatsTool(db_path=str(tmp_path / "missing.duckdb"), raw_data_dir=str(raw))
+    answer = tool.maybe_answer("which world cup did USA women's place the highest")
+
+    assert answer is not None
+    assert "United States' highest World Cup finish in the women's tournament was champion" in answer.answer
+    assert "1991 FIFA Women's World Cup" in answer.answer
+    assert "2019 FIFA Women's World Cup" in answer.answer
+    assert "1995 FIFA Women's World Cup" not in answer.answer
+    assert answer.citations[0]["table"] == "tournament_standings"

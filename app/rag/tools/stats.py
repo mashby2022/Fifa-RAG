@@ -43,9 +43,15 @@ PERFORMANCE_RANKS = {
 }
 
 TEAM_ALIASES = {
+    "american team": "United States",
     "nigerian": "Nigeria",
     "nigerian team": "Nigeria",
     "super eagles": "Nigeria",
+    "u s a": "United States",
+    "u s women": "United States",
+    "us women": "United States",
+    "usa women": "United States",
+    "uswnt": "United States",
 }
 
 
@@ -116,6 +122,10 @@ class DuckDBStatsTool:
             rows = [row for row in rows if "Men's World Cup" in row.get("tournament_name", "")]
             scope = "men's"
 
+        standings_answer = self._team_best_standing_answer(team, scope)
+        if standings_answer:
+            return standings_answer
+
         ranked = [
             (PERFORMANCE_RANKS.get(row.get("performance", "").lower(), 0), _row_year(row) or 0, row)
             for row in rows
@@ -130,7 +140,7 @@ class DuckDBStatsTool:
         performance = best_rows[0].get("performance", "best finish")
         tournaments = ", ".join(row.get("tournament_name", "") for row in best_rows)
 
-        answer = f"{team}'s highest World Cup finish"
+        answer = f"{_possessive(team)} highest World Cup finish"
         if scope in {"men's", "women's"}:
             answer += f" in the {scope} tournament"
         answer += f" was {performance}, reached at {tournaments}."
@@ -157,6 +167,47 @@ class DuckDBStatsTool:
                 "scope": scope,
             },
             worklog=["Selected DuckDB", "Schema context ready", "Querying qualified_teams for team finish"],
+        )
+
+    def _team_best_standing_answer(self, team: str, scope: str) -> ToolAnswer | None:
+        rows = [
+            row
+            for row in self._table_rows("tournament_standings")
+            if row.get("team_name", "").casefold() == team.casefold()
+        ]
+        if scope == "women's":
+            rows = [row for row in rows if "Women's World Cup" in row.get("tournament_name", "")]
+        elif scope == "men's":
+            rows = [row for row in rows if "Men's World Cup" in row.get("tournament_name", "")]
+        if not rows:
+            return None
+
+        ranked = [(int(row.get("position", "999")), _row_year(row) or 0, row) for row in rows if row.get("position")]
+        if not ranked:
+            return None
+        best_position = min(position for position, _, _ in ranked)
+        best_rows = [row for position, _, row in ranked if position == best_position]
+        best_rows.sort(key=lambda row: _row_year(row) or 0)
+        tournaments = ", ".join(row.get("tournament_name", "") for row in best_rows)
+
+        answer = f"{_possessive(team)} highest World Cup finish"
+        if scope in {"men's", "women's"}:
+            answer += f" in the {scope} tournament"
+        answer += f" was {_finish_noun(best_position)}, achieved at {tournaments}."
+
+        return ToolAnswer(
+            tool_name="duckdb_stats",
+            answer=answer,
+            citations=[{"table": "tournament_standings", "record_id": row.get("key_id", "")} for row in best_rows[:8]],
+            diagnostics={
+                "backend": self.backend,
+                "rows_scanned": len(rows),
+                "operation": "team_best_finish",
+                "team": team,
+                "scope": scope,
+                "source_table": "tournament_standings",
+            },
+            worklog=["Selected DuckDB", "Schema context ready", "Querying tournament_standings for team finish"],
         )
 
     def schema_answer(self) -> ToolAnswer | None:
@@ -369,6 +420,22 @@ def _contains_normalized(haystack: str, needle: str) -> bool:
     if not normalized_needle:
         return False
     return re.search(rf"(?:^|\s){re.escape(normalized_needle)}(?:\s|$)", haystack) is not None
+
+
+def _possessive(team: str) -> str:
+    return f"{team}'" if team.endswith("s") else f"{team}'s"
+
+
+def _finish_noun(position: int) -> str:
+    if position == 1:
+        return "champion"
+    if position == 2:
+        return "runner-up"
+    if position == 3:
+        return "third place"
+    if position == 4:
+        return "fourth place"
+    return f"position {position}"
 
 
 def _stringify(value: object) -> str:
