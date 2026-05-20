@@ -43,11 +43,6 @@ def test_stats_tool_identifies_top_scorer_from_csv_fallback(tmp_path: Path) -> N
 def test_stats_tool_answers_team_best_finish_from_qualified_teams(tmp_path: Path) -> None:
     raw = tmp_path / "raw"
     raw.mkdir()
-    (raw / "teams.csv").write_text(
-        "key_id,team_id,team_name,team_code\n"
-        "50,T-50,Nigeria,NGA\n",
-        encoding="utf-8",
-    )
     (raw / "qualified_teams.csv").write_text(
         "key_id,tournament_id,tournament_name,team_id,team_name,team_code,count_matches,performance\n"
         "267,WC-1994,1994 FIFA Men's World Cup,T-50,Nigeria,NGA,4,round of 16\n"

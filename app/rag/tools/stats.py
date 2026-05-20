@@ -273,7 +273,7 @@ class DuckDBStatsTool:
 
     def _team_from_question(self, question: str) -> str | None:
         lowered = _normalized(question)
-        teams = self._table_rows("teams")
+        teams = self._table_rows("teams") or self._table_rows("qualified_teams")
         aliases = [
             (row.get("team_name", ""), row.get("team_code", ""))
             for row in teams
