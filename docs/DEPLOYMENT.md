@@ -64,3 +64,4 @@ docker run --env-file .env -p 8000:8000 worldcup-rag-api
 - Store `NVIDIA_API_KEY` only in Render, never in Lovable or GitHub.
 - Do not commit `.env` or partner raw datasets.
 - After deployment, `/api/health` should show `corpus_profile: "demo"` and `document_count: 1500`.
+- If `/api/health` still only shows the old fields and `document_count: 5`, Render is serving an older deploy. Trigger **Manual Deploy > Clear build cache & deploy** and confirm the deploy log checks out the latest Git commit.

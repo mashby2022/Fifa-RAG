@@ -12,6 +12,10 @@ services:
         value: production
       - key: AUTO_INGEST_ON_STARTUP
         value: true
+      - key: CORPUS_PROFILE
+        value: demo
+      - key: DEMO_CORPUS_MAX_DOCS
+        value: 1500
       - key: VECTOR_BACKEND
         value: memory
       - key: EMBEDDING_PROVIDER
