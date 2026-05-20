@@ -116,6 +116,17 @@ Design language:
 Add your Lovable URLs to the backend `.env`:
 
 ```text
-CORS_ORIGINS=https://your-preview.lovable.app,https://your-project.lovableproject.com
+CORS_ORIGINS=https://fifa-fan-chatter.lovable.app
 ```
 
+For your current Lovable app, set the frontend environment variable to your deployed backend URL:
+
+```text
+VITE_API_BASE_URL=https://your-backend-host.example.com
+```
+
+For example, after deploying on Render, this will look like:
+
+```text
+VITE_API_BASE_URL=https://worldcup-rag-api.onrender.com
+```

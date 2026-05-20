@@ -20,7 +20,7 @@ APP_ENV=production
 VECTOR_BACKEND=memory
 EMBEDDING_PROVIDER=local_hash
 GENERATOR_PROVIDER=extractive
-CORS_ORIGINS=https://your-lovable-preview.lovable.app,https://your-project.lovableproject.com
+CORS_ORIGINS=https://fifa-fan-chatter.lovable.app
 ```
 
 5. Copy the Render service URL into Lovable:
@@ -49,4 +49,3 @@ docker run --env-file .env -p 8000:8000 worldcup-rag-api
 - Move to `VECTOR_BACKEND=milvus` once a hosted Milvus/Zilliz endpoint is available.
 - Add the final Lovable domains to `CORS_ORIGINS`.
 - Do not commit `.env` or partner raw datasets.
-
