@@ -11,6 +11,7 @@ The repo currently runs with mock World Cup data and a deterministic local retri
 - Controlled no-answer behavior for invalid premises.
 - A stable API contract for a Lovable-hosted frontend.
 - A data contract for partner-provided tabular datasets.
+- Agent-style tools for exact stats, schema inspection, article retrieval, and optional web fallback.
 - A repo shape suitable for GitHub collaboration and CI.
 
 ## Architecture
@@ -20,8 +21,8 @@ Partner tabular datasets
   -> normalization/document builder
   -> generated World Cup documents
   -> embeddings
-  -> Milvus or local vector store
-  -> retriever and optional reranker
+  -> DuckDB stats tool + Milvus or local vector store
+  -> retriever, optional web fallback, and optional reranker
   -> grounded response generator
   -> Lovable frontend
 ```
@@ -72,6 +73,12 @@ Preset demo questions:
 
 ```http
 GET /api/demo/questions
+```
+
+Tool status:
+
+```http
+GET /api/tools
 ```
 
 Chat:
@@ -147,6 +154,8 @@ DEMO_CORPUS_MAX_DOCS=1500
 NVIDIA_API_KEY=<set-in-render-only>
 ```
 
+No other key is required for the default demo. Add a Tavily key only if you enable `WEB_SEARCH_ENABLED=true`, and add a hosted Milvus/Zilliz URI/token only when moving beyond the in-memory vector store.
+
 ## Data Integration
 
 Partner datasets should land in `data/raw/` and `data/processed/`, then be normalized into generated document records under `data/generated_docs/`.
@@ -173,6 +182,16 @@ The generated corpus is intentionally ignored by Git. Render rebuilds it during 
 - https://github.com/jfjelstul/worldcup
 - https://github.com/openfootball/worldcup
 
+## Agentic Tools
+
+The backend now has lightweight equivalents of the backup ChainLit/NAT tool pattern:
+
+- `duckdb_stats`: exact counts and grouped stats over `worldcup.duckdb`, local CSVs, or GitHub fallback tables.
+- `duckdb_schema`: codebook/schema summaries when Tom's codebook files are available.
+- `article_lookup`: local press/article text from `data/press/*.txt` or `data/press/*.md`.
+- `web_search`: optional Tavily-backed fallback, disabled by default.
+- `milvus_retrieval`: optional runtime backend when `VECTOR_BACKEND=milvus`.
+
 ## Milvus
 
 Start local Milvus:
@@ -189,7 +208,7 @@ MILVUS_URI=http://localhost:19530
 MILVUS_COLLECTION=worldcup_docs
 ```
 
-The Milvus adapter is intentionally left as the next integration point. The current repo uses an in-memory vector store so the API and Lovable frontend can be built immediately.
+The app will try the Milvus adapter when `VECTOR_BACKEND=milvus`; if Milvus cannot initialize, it falls back to the in-memory vector store so Render can still serve the demo.
 
 ## Repo Structure
 

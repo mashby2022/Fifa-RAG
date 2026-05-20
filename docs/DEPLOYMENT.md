@@ -19,6 +19,9 @@ Start command: uvicorn app.main:app --host 0.0.0.0 --port $PORT
 PYTHON_VERSION=3.11.11
 APP_ENV=production
 AUTO_INGEST_ON_STARTUP=true
+CORPUS_PROFILE=demo
+DEMO_CORPUS_MAX_DOCS=1500
+ENABLE_DUCKDB_TOOL=true
 VECTOR_BACKEND=memory
 EMBEDDING_PROVIDER=nvidia
 GENERATOR_PROVIDER=nvidia
@@ -30,6 +33,14 @@ NVIDIA_RERANKER_MODEL=nvidia/llama-nemotron-rerank-1b-v2
 NVIDIA_RERANKER_URL=https://ai.api.nvidia.com/v1/retrieval/nvidia/llama-nemotron-rerank-1b-v2/reranking
 NVIDIA_API_KEY=<your-nvidia-nim-key>
 CORS_ORIGINS=https://fifa-fan-chatter.lovable.app
+```
+
+No extra secret is required for DuckDB stats. Only add web-search credentials if you intentionally enable web fallback:
+
+```text
+WEB_SEARCH_ENABLED=true
+WEB_SEARCH_PROVIDER=tavily
+WEB_SEARCH_API_KEY=<your-tavily-key>
 ```
 
 5. Copy the Render service URL into Lovable:
@@ -59,7 +70,8 @@ docker run --env-file .env -p 8000:8000 worldcup-rag-api
 - Tom's local data bundle is not committed to Git. For Render, use the GitHub fallback until Phase 5 packages the data as a release artifact or object-store download.
 - To deploy Tom's bundle, set `DATA_BUNDLE_URL` to a zip containing `raw/` and/or `processed/`, or set `RAW_DATA_ZIP_URL`, `PROCESSED_DATA_ZIP_URL`, and `INDEXES_DATA_ZIP_URL` separately.
 - Set `RERANKER_PROVIDER=nvidia` when you are ready to use NeMo Retriever Reranking NIM.
-- Move to `VECTOR_BACKEND=milvus` once a hosted Milvus/Zilliz endpoint is available.
+- Move to `VECTOR_BACKEND=milvus` once a hosted Milvus/Zilliz endpoint is available. Keep `VECTOR_BACKEND=memory` for the key-light demo.
+- Use `/api/tools` to confirm `duckdb_stats`, `milvus_retrieval`, and `web_search` runtime status.
 - Add the final Lovable domains to `CORS_ORIGINS`.
 - Store `NVIDIA_API_KEY` only in Render, never in Lovable or GitHub.
 - Do not commit `.env` or partner raw datasets.

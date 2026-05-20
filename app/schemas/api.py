@@ -8,7 +8,7 @@ from app.schemas.documents import AnswerStatus, RetrievedDocument, SourceRef
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1)
     top_k: int = Field(default=5, ge=1, le=10)
-    query_mode: Literal["auto", "matches", "teams", "players", "tournaments", "schema", "compare_eras"] = "auto"
+    query_mode: Literal["auto", "matches", "teams", "players", "tournaments", "schema", "compare_eras", "articles"] = "auto"
 
 
 class Citation(BaseModel):
@@ -27,6 +27,7 @@ class ChatResponse(BaseModel):
     intent: str = "unknown"
     query_rewrite: str | None = None
     layers_searched: list[str] = Field(default_factory=list)
+    tool_calls: list[dict[str, object]] = Field(default_factory=list)
     retrieval_diagnostics: dict[str, object] = Field(default_factory=dict)
 
 
@@ -34,6 +35,7 @@ class HealthResponse(BaseModel):
     ok: bool
     app: str
     vector_backend: str
+    vector_runtime_backend: str
     embedding_provider: str
     embedding_runtime_provider: str
     generator_provider: str
@@ -42,6 +44,7 @@ class HealthResponse(BaseModel):
     corpus_profile: str
     demo_corpus_max_docs: int
     document_count: int
+    tools: dict[str, object] = Field(default_factory=dict)
 
 
 class ArchitectureStep(BaseModel):

@@ -9,6 +9,7 @@ HOST_TERMS = {"host", "hosted", "hosting"}
 SCORER_TERMS = {"scorer", "scored", "goals", "golden boot", "top scorer"}
 MATCH_TERMS = {"match", "final", "semi-final", "quarter-final", "hero", "winner", "winning goal"}
 TEAM_ARC_TERMS = {"perform", "performance", "arc", "run", "timeline", "across", "compare"}
+ARTICLE_TERMS = {"press", "article", "news", "headline", "story"}
 VALID_MEN_YEARS = {
     1930,
     1934,
@@ -58,7 +59,7 @@ def parse_query(message: str, query_mode: str = "auto") -> ParsedQuery:
 
     invalid_reason = None
     intent = "factual_lookup"
-    layers = ["tournament", "match", "team", "standing", "award", "goal", "player"]
+    layers = ["tournament", "match", "team", "standing", "award", "goal", "player", "article"]
     query_rewrite = _rewrite_query(message, years)
 
     if any(club in lowered for club in KNOWN_CLUBS):
@@ -70,6 +71,9 @@ def parse_query(message: str, query_mode: str = "auto") -> ParsedQuery:
     elif any(term in lowered for term in SCHEMA_TERMS):
         intent = "schema_question"
         layers = ["schema"]
+    elif any(term in lowered for term in ARTICLE_TERMS):
+        intent = "article_lookup"
+        layers = ["article", "tournament", "match", "team"]
     elif len(years) > 1 or any(term in lowered for term in TEAM_ARC_TERMS):
         intent = "team_arc"
         layers = ["team", "match", "standing"]
@@ -105,8 +109,9 @@ def _mode_intent(query_mode: str) -> tuple[str, list[str]]:
         "tournaments": ("tournament_lookup", ["tournament", "standing"]),
         "schema": ("schema_question", ["schema"]),
         "compare_eras": ("comparison", ["team", "tournament", "standing", "goal", "award"]),
+        "articles": ("article_lookup", ["article"]),
     }
-    return modes.get(query_mode, ("factual_lookup", ["tournament", "match", "team", "standing", "award", "goal", "player"]))
+    return modes.get(query_mode, ("factual_lookup", ["tournament", "match", "team", "standing", "award", "goal", "player", "article"]))
 
 
 def _rewrite_query(message: str, years: list[int]) -> str:

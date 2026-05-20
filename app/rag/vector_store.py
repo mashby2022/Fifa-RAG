@@ -3,6 +3,7 @@ import logging
 
 import numpy as np
 
+from app.core.config import settings
 from app.rag.embeddings import LocalHashEmbedder, get_embedder
 from app.rag.document_loader import load_documents
 from app.rag.scoring import lexical_score
@@ -88,10 +89,81 @@ class InMemoryVectorStore(VectorStore):
 
 
 class MilvusVectorStore(VectorStore):
+    def __init__(self, documents: list[WorldCupDocument]):
+        try:
+            from pymilvus import MilvusClient
+        except ImportError as exc:
+            raise RuntimeError("pymilvus is required when VECTOR_BACKEND=milvus.") from exc
+
+        self.documents = documents
+        self.documents_by_id = {doc.doc_id: doc for doc in documents}
+        self.embedder = get_embedder()
+        self.embedding_runtime_provider = self.embedder.__class__.__name__
+        self.client = MilvusClient(uri=settings.milvus_uri)
+        self.collection_name = settings.milvus_collection
+        self._ensure_collection()
+
+    @property
+    def document_count(self) -> int:
+        return len(self.documents)
+
+    def _ensure_collection(self) -> None:
+        if not self.client.has_collection(self.collection_name):
+            self.client.create_collection(
+                collection_name=self.collection_name,
+                dimension=settings.embedding_dim,
+                primary_field_name="id",
+                vector_field_name="vector",
+                id_type="string",
+                metric_type="IP",
+                auto_id=False,
+            )
+            self._insert_documents()
+
+    def _insert_documents(self) -> None:
+        batch_size = 64
+        for start in range(0, len(self.documents), batch_size):
+            batch = self.documents[start : start + batch_size]
+            vectors = self.embedder.embed_many([doc.text for doc in batch], input_type="passage")
+            self.client.insert(
+                collection_name=self.collection_name,
+                data=[{"id": doc.doc_id, "vector": vector} for doc, vector in zip(batch, vectors)],
+            )
+
     def search(self, query: str, filters: dict[str, object], top_k: int) -> list[RetrievedDocument]:
-        raise NotImplementedError(
-            "Milvus adapter placeholder: wire pymilvus here once the dataset and deployment target are finalized."
+        query_vector = self.embedder.embed(query, input_type="query")
+        hits = self.client.search(
+            collection_name=self.collection_name,
+            data=[query_vector],
+            limit=max(top_k * 5, top_k),
+            output_fields=["id"],
         )
+        results: list[RetrievedDocument] = []
+        for hit in hits[0]:
+            doc_id = hit.get("id") or hit.get("entity", {}).get("id")
+            doc = self.documents_by_id.get(doc_id)
+            if not doc or not InMemoryVectorStore._matches_filters(doc, filters):
+                continue
+            vector_score = float(hit.get("distance", 0.0))
+            score = vector_score + lexical_score(query, doc)
+            results.append(RetrievedDocument(doc=doc, score=round(score, 4)))
+            if len(results) >= top_k:
+                break
+        return sorted(results, key=lambda item: item.score, reverse=True)[:top_k]
 
 
-vector_store = InMemoryVectorStore(load_documents())
+def create_vector_store() -> VectorStore:
+    documents = load_documents()
+    if settings.vector_backend == "milvus":
+        try:
+            store = MilvusVectorStore(documents)
+            setattr(store, "vector_runtime_backend", "milvus")
+            return store
+        except Exception as exc:
+            logger.warning("Milvus initialization failed; falling back to in-memory vector store: %s", exc)
+    store = InMemoryVectorStore(documents)
+    setattr(store, "vector_runtime_backend", "memory")
+    return store
+
+
+vector_store = create_vector_store()

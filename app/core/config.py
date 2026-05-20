@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     include_openfootball_docs: bool = False
     auto_ingest_on_startup: bool = False
     initial_retrieval_k: int = 30
+    enable_duckdb_tool: bool = True
+    duckdb_path: str = "data/processed/worldcup.duckdb"
+    press_articles_dir: str = "data/press"
+    web_search_enabled: bool = False
+    web_search_provider: str = "disabled"
+    web_search_api_key: str = ""
+    web_search_url: str = "https://api.tavily.com/search"
 
     embedding_provider: str = "local_hash"
     embedding_dim: int = 384

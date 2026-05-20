@@ -3,7 +3,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 
-EntityType = Literal["match", "team", "player", "tournament", "award", "standing", "goal", "schema"]
+EntityType = Literal["match", "team", "player", "tournament", "award", "standing", "goal", "schema", "article"]
 AnswerStatus = Literal["grounded", "partial", "no_answer", "invalid_premise"]
 
 

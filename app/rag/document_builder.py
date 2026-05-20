@@ -8,6 +8,7 @@ from app.rag.corpus import (
     build_goal_story_docs,
     build_match_docs,
     build_openfootball_docs,
+    build_press_article_docs,
     build_player_profile_docs,
     build_standing_docs,
     build_team_performance_docs,
@@ -61,6 +62,7 @@ def build_document_corpus(tables: dict[str, list[dict[str, str]]]) -> list[World
 
     if settings.include_openfootball_docs:
         documents.extend(build_openfootball_docs())
+    documents.extend(build_press_article_docs())
 
     return documents
 

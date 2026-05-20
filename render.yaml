@@ -16,6 +16,12 @@ services:
         value: demo
       - key: DEMO_CORPUS_MAX_DOCS
         value: 1500
+      - key: ENABLE_DUCKDB_TOOL
+        value: true
+      - key: DUCKDB_PATH
+        value: data/processed/worldcup.duckdb
+      - key: WEB_SEARCH_ENABLED
+        value: false
       - key: VECTOR_BACKEND
         value: memory
       - key: EMBEDDING_PROVIDER

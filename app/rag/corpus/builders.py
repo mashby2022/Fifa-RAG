@@ -1,7 +1,9 @@
 import re
 from collections import defaultdict
+from pathlib import Path
 
 from app.schemas.documents import SourceRef, WorldCupDocument
+from app.core.config import settings
 from app.rag.corpus.sources import OPENFOOTBALL_FILES, read_text_url as _read_text_url
 from app.rag.corpus.utils import (
     chunk_football_txt as _chunk_football_txt,
@@ -561,6 +563,39 @@ def _build_openfootball_docs() -> list[WorldCupDocument]:
     return documents
 
 
+def _build_press_article_docs() -> list[WorldCupDocument]:
+    articles_dir = Path(settings.press_articles_dir)
+    if not articles_dir.exists():
+        return []
+
+    documents: list[WorldCupDocument] = []
+    paths = sorted(
+        path
+        for path in articles_dir.rglob("*")
+        if path.is_file() and path.suffix.lower() in {".txt", ".md"}
+    )
+    for index, path in enumerate(paths, start=1):
+        text = path.read_text(encoding="utf-8", errors="ignore").strip()
+        if not text:
+            continue
+        year_match = re.search(r"\b(19[3-9][0-9]|20[0-9][0-9])\b", text)
+        year = int(year_match.group(1)) if year_match else 0
+        title = path.stem.replace("_", " ").replace("-", " ").title()
+        documents.append(
+            WorldCupDocument(
+                doc_id=f"press:article:{index}:{path.stem}",
+                entity_type="article",
+                competition="women" if "women" in text.lower() else "men",
+                tournament_year=year,
+                title=title,
+                text=text[:5000],
+                metadata={"source": "local-press", "path": str(path), "filename": path.name},
+                source_refs=[SourceRef(table="press_articles", record_id=str(path))],
+            )
+        )
+    return documents
+
+
 build_tournament_docs = _build_tournament_docs
 build_match_docs = _build_match_docs
 build_standing_docs = _build_standing_docs
@@ -571,3 +606,4 @@ build_goal_story_docs = _build_goal_story_docs
 build_codebook_docs = _build_codebook_docs
 build_award_docs = _build_award_docs
 build_openfootball_docs = _build_openfootball_docs
+build_press_article_docs = _build_press_article_docs

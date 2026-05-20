@@ -13,6 +13,7 @@ def health() -> HealthResponse:
         ok=True,
         app=settings.app_name,
         vector_backend=settings.vector_backend,
+        vector_runtime_backend=rag_service.vector_runtime_backend,
         embedding_provider=settings.embedding_provider,
         embedding_runtime_provider=rag_service.embedding_runtime_provider,
         generator_provider=settings.generator_provider,
@@ -21,6 +22,7 @@ def health() -> HealthResponse:
         corpus_profile=settings.corpus_profile,
         demo_corpus_max_docs=settings.demo_corpus_max_docs,
         document_count=rag_service.document_count,
+        tools=rag_service.tool_status,
     )
 
 
@@ -38,6 +40,11 @@ def demo_questions() -> list[str]:
     ]
 
 
+@router.get("/tools")
+def tools() -> dict[str, object]:
+    return rag_service.tool_status
+
+
 @router.get("/architecture", response_model=ArchitectureResponse)
 def architecture() -> ArchitectureResponse:
     return ArchitectureResponse(
@@ -47,8 +54,8 @@ def architecture() -> ArchitectureResponse:
             "The bot treats World Cup data as multiple searchable story layers rather than one flat pile of rows. "
             "Structured tables from Fjelstul World Cup and OpenFootball are transformed into human-readable "
             "documents for tournaments, matches, team runs, awards, and story arcs. The retrieval path combines "
-            "metadata filtering, semantic embeddings, lightweight lexical boosts, optional Milvus storage, and "
-            "NVIDIA-hosted generation with citations."
+            "DuckDB-style exact stats tools, metadata filtering, semantic embeddings, lightweight lexical boosts, "
+            "optional Milvus storage, guarded web search fallback, and NVIDIA-hosted generation with citations."
         ),
         pipeline=[
             ArchitectureStep(
@@ -84,7 +91,15 @@ def architecture() -> ArchitectureResponse:
                 technologies=["NeMo Retriever embeddings", "Hybrid scoring", "Milvus-ready vector store"],
             ),
             ArchitectureStep(
-                title="5. Rerank And Ground",
+                title="5. Agentic Tool Routing",
+                description=(
+                    "Stats and schema-style questions can route to a DuckDB-backed tool before RAG, while article "
+                    "questions can search the article layer and future low-confidence questions can use controlled web search."
+                ),
+                technologies=["DuckDB stats tool", "Press/article retrieval layer", "Optional web search tool"],
+            ),
+            ArchitectureStep(
+                title="6. Rerank And Ground",
                 description=(
                     "The intended production path retrieves a broad candidate set, reranks aggressively for precision, "
                     "then sends only the best grounded evidence to the answer generator."
@@ -92,7 +107,7 @@ def architecture() -> ArchitectureResponse:
                 technologies=["NeMo Retriever Reranking NIM", "Top-k evidence selection", "Citation contract"],
             ),
             ArchitectureStep(
-                title="6. Generate With Evidence",
+                title="7. Generate With Evidence",
                 description=(
                     "The generator answers only from retrieved records and returns citations, retrieved context, "
                     "filters, and answer status for the UI."
@@ -120,6 +135,11 @@ def architecture() -> ArchitectureResponse:
                 name="Awards And Player Signals",
                 purpose="Surface Golden Boot, Golden Ball, and notable player records.",
                 examples=["Who was the top scorer in 2010?", "Who won the Golden Ball in 2022?"],
+            ),
+            ArchitectureLayer(
+                name="Press Articles",
+                purpose="Index local press/article text as a separate article layer for Milvus or in-memory retrieval.",
+                examples=["What press coverage do we have about World Cup 2026?"],
             ),
             ArchitectureLayer(
                 name="Fixture And Future Context",

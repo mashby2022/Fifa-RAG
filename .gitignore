@@ -17,8 +17,10 @@ data/__indexes/*
 data/___All_Errors.txt
 data/normalized/*
 data/generated_docs/*
+data/press/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 !data/indexes/.gitkeep
 !data/normalized/.gitkeep
 !data/generated_docs/.gitkeep
+!data/press/.gitkeep

@@ -86,6 +86,8 @@ def demo_priority(doc: WorldCupDocument) -> int:
         return goal_priority(doc)
     if doc.entity_type == "player":
         return player_priority(doc)
+    if doc.entity_type == "article":
+        return article_priority(doc)
     return 0
 
 
@@ -156,3 +158,7 @@ def player_priority(doc: WorldCupDocument) -> int:
     if int(doc.metadata.get("appearances", 0) or 0) >= 15:
         return 790 + doc.tournament_year
     return 0
+
+
+def article_priority(doc: WorldCupDocument) -> int:
+    return 780 + doc.tournament_year
