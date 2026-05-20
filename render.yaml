@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: worldcup-rag-api
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: VECTOR_BACKEND
+        value: memory
+      - key: EMBEDDING_PROVIDER
+        value: local_hash
+      - key: GENERATOR_PROVIDER
+        value: extractive
+      - key: CORS_ORIGINS
+        sync: false
+
