@@ -26,4 +26,5 @@ class WorldCupDocument(BaseModel):
 class RetrievedDocument(BaseModel):
     doc: WorldCupDocument
     score: float
+    rerank_score: float | None = None
     used: bool = False

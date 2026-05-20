@@ -58,6 +58,8 @@ class InMemoryVectorStore(VectorStore):
                 return False
             if key == "tournament_year" and doc.tournament_year != value:
                 return False
+            if key == "entity_types" and isinstance(value, list) and doc.entity_type not in value:
+                return False
         return True
 
     def _embed_documents(self, documents: list[WorldCupDocument]) -> dict[str, np.ndarray]:

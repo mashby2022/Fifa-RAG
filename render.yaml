@@ -3,7 +3,7 @@ services:
     name: worldcup-rag-api
     runtime: python
     plan: free
-    buildCommand: pip install -r requirements.txt && python scripts/ingest_dataset.py
+    buildCommand: pip install -r requirements.txt && python scripts/prepare_data_bundle.py && python scripts/ingest_dataset.py
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
@@ -18,13 +18,21 @@ services:
         value: nvidia
       - key: GENERATOR_PROVIDER
         value: nvidia
+      - key: RERANKER_PROVIDER
+        value: none
       - key: NVIDIA_BASE_URL
         value: https://integrate.api.nvidia.com/v1
       - key: NVIDIA_EMBEDDING_MODEL
         value: nvidia/nv-embedqa-e5-v5
       - key: NVIDIA_GENERATOR_MODEL
         value: meta/llama-3.1-70b-instruct
+      - key: NVIDIA_RERANKER_MODEL
+        value: nvidia/llama-nemotron-rerank-1b-v2
+      - key: NVIDIA_RERANKER_URL
+        value: https://ai.api.nvidia.com/v1/retrieval/nvidia/llama-nemotron-rerank-1b-v2/reranking
       - key: NVIDIA_API_KEY
         sync: false
       - key: CORS_ORIGINS
+        sync: false
+      - key: DATA_BUNDLE_URL
         sync: false

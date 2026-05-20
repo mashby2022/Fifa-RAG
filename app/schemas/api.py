@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from app.schemas.documents import AnswerStatus, RetrievedDocument, SourceRef
@@ -6,6 +8,7 @@ from app.schemas.documents import AnswerStatus, RetrievedDocument, SourceRef
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1)
     top_k: int = Field(default=5, ge=1, le=10)
+    query_mode: Literal["auto", "matches", "teams", "players", "tournaments", "schema", "compare_eras"] = "auto"
 
 
 class Citation(BaseModel):
@@ -21,6 +24,10 @@ class ChatResponse(BaseModel):
     citations: list[Citation]
     retrieved_context: list[RetrievedDocument]
     filters: dict[str, object]
+    intent: str = "unknown"
+    query_rewrite: str | None = None
+    layers_searched: list[str] = Field(default_factory=list)
+    retrieval_diagnostics: dict[str, object] = Field(default_factory=dict)
 
 
 class HealthResponse(BaseModel):
@@ -29,6 +36,7 @@ class HealthResponse(BaseModel):
     vector_backend: str
     embedding_provider: str
     generator_provider: str
+    reranker_provider: str
     nvidia_configured: bool
     document_count: int
 

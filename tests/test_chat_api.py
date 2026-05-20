@@ -33,6 +33,20 @@ def test_grounded_2014_final_answer_has_citation() -> None:
     assert "Germany" in payload["answer"]
     assert payload["citations"]
     assert payload["citations"][0]["source_refs"]
+    assert payload["intent"]
+    assert payload["layers_searched"]
+    assert "initial_retrieved" in payload["retrieval_diagnostics"]
+
+
+def test_query_mode_schema_routes_to_codebook_layer() -> None:
+    response = client.post(
+        "/api/chat",
+        json={"message": "Which table tracks goals and goal scorers?", "query_mode": "schema"},
+    )
+    payload = response.json()
+    assert response.status_code == 200
+    assert payload["intent"] == "schema_question"
+    assert payload["layers_searched"] == ["schema"]
 
 
 def test_invalid_world_cup_year_does_not_retrieve() -> None:

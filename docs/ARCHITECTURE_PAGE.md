@@ -50,6 +50,21 @@ Structured Data
   -> Answer + Citations
 ```
 
+## Runtime Diagnostics To Show
+
+The chat response includes:
+
+```text
+intent
+query_rewrite
+layers_searched
+retrieval_diagnostics.initial_retrieved
+retrieval_diagnostics.reranker
+retrieval_diagnostics.reranked_count
+```
+
+Render these as a compact "Evidence Pipeline" module in the right panel.
+
 ## Story Layers
 
 Show these as compact cards:
@@ -112,4 +127,3 @@ Design:
 - Avoid a marketing hero and avoid decorative fluff.
 - Make the NVIDIA technologies visibly connected to the bot mechanism.
 ```
-

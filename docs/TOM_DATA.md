@@ -91,3 +91,27 @@ Check API health:
 python -c "from fastapi.testclient import TestClient; from app.main import app; print(TestClient(app).get('/api/health').json())"
 ```
 
+## Render Data Bundle Options
+
+Phase 5 adds a no-op-safe bundle preparation script:
+
+```bash
+python scripts/prepare_data_bundle.py
+```
+
+Render build command:
+
+```text
+pip install -r requirements.txt && python scripts/prepare_data_bundle.py && python scripts/ingest_dataset.py
+```
+
+Supported environment variables:
+
+```text
+DATA_BUNDLE_URL=https://.../tom-worldcup-data.zip
+RAW_DATA_ZIP_URL=https://.../raw.zip
+PROCESSED_DATA_ZIP_URL=https://.../processed.zip
+INDEXES_DATA_ZIP_URL=https://.../indexes.zip
+```
+
+`DATA_BUNDLE_URL` should point to a zip that extracts into `data/raw`, `data/processed`, or both. The three individual zip URLs can point directly to Tom's delivered zips.

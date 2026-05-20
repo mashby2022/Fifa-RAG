@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     local_data_dir: str = "data"
     include_openfootball_docs: bool = False
     auto_ingest_on_startup: bool = False
+    initial_retrieval_k: int = 30
 
     embedding_provider: str = "local_hash"
     embedding_dim: int = 384
@@ -32,6 +33,9 @@ class Settings(BaseSettings):
 
     generator_provider: str = "extractive"
     nvidia_generator_model: str = "meta/llama-3.1-70b-instruct"
+    reranker_provider: str = "none"
+    nvidia_reranker_model: str = "nvidia/llama-nemotron-rerank-1b-v2"
+    nvidia_reranker_url: str = "https://ai.api.nvidia.com/v1/retrieval/nvidia/llama-nemotron-rerank-1b-v2/reranking"
 
     @cached_property
     def cors_origin_list(self) -> list[str]:

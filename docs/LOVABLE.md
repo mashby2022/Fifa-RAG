@@ -50,7 +50,8 @@ Content-Type: application/json
 
 {
   "message": "Who won the men's World Cup in 2014?",
-  "top_k": 5
+  "top_k": 5,
+  "query_mode": "auto"
 }
 ```
 
@@ -77,6 +78,14 @@ Response:
   "filters": {
     "competition": "men",
     "tournament_year": 2014
+  },
+  "intent": "match_lookup",
+  "query_rewrite": "Who was Germany's hero in the 2014 final? final winning goal goal scorer match narrative",
+  "layers_searched": ["match", "goal", "player", "award", "team"],
+  "retrieval_diagnostics": {
+    "initial_retrieved": 30,
+    "final_context": 5,
+    "reranker": "none"
   }
 }
 ```
@@ -102,12 +111,14 @@ Right panel:
 - Show top retrieved documents as compact cards.
 - Each card should show title, entity type, tournament year, score, source refs, and whether it was used.
 - Show applied filters and confidence.
+- Show intent, query rewrite, layers searched, and reranker status.
+- Include query-mode pills that send query_mode as one of: auto, matches, teams, players, tournaments, schema, compare_eras.
 
 API base URL comes from VITE_API_BASE_URL.
 Endpoints:
 - GET /api/health
 - GET /api/demo/questions
-- POST /api/chat with { "message": string, "top_k": number }
+- POST /api/chat with { "message": string, "top_k": number, "query_mode": string }
 
 Design language:
 - Clear, enterprise demo style inspired by NVIDIA internal demo tools.
