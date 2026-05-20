@@ -8,7 +8,7 @@ from app.rag.tools.stats import ToolAnswer
 
 
 WEB_TERMS = {"latest", "current", "today", "news", "press", "article", "web", "search"}
-EXCLUDED_DOMAINS = ["facebook.com", "instagram.com", "x.com", "twitter.com", "tiktok.com", "punchng.com"]
+EXCLUDED_DOMAINS = ["facebook.com", "instagram.com", "x.com", "twitter.com", "tiktok.com", "youtube.com", "youtu.be", "punchng.com"]
 TRUSTED_VERIFICATION_DOMAINS = ["fifa.com", "wikipedia.org", "rsssf.org", "worldcupbrackets.info", "statbunker.com"]
 EXPLICIT_WEB_TERMS = {
     "check the web",
