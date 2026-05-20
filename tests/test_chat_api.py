@@ -12,6 +12,16 @@ def test_health() -> None:
     assert response.json()["ok"] is True
 
 
+def test_architecture_endpoint_describes_nvidia_stack() -> None:
+    response = client.get("/api/architecture")
+    payload = response.json()
+    assert response.status_code == 200
+    assert "World Cup Intelligence" in payload["title"]
+    assert payload["pipeline"]
+    assert payload["story_layers"]
+    assert any("NeMo Retriever" in item["title"] for item in payload["nvidia_technologies"])
+
+
 def test_grounded_2014_final_answer_has_citation() -> None:
     response = client.post(
         "/api/chat",
@@ -40,4 +50,3 @@ def test_club_team_question_is_clarified() -> None:
     assert response.status_code == 200
     assert payload["status"] == "invalid_premise"
     assert "club team" in payload["answer"]
-

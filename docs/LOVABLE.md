@@ -36,6 +36,12 @@ Demo questions:
 GET /api/demo/questions
 ```
 
+Architecture:
+
+```http
+GET /api/architecture
+```
+
 Chat:
 
 ```http
@@ -110,6 +116,16 @@ Design language:
 - First screen is the working app.
 - Make source evidence obvious without overwhelming the answer.
 ```
+
+## Architecture Page
+
+Add a top-level `Chat | Architecture` control. The Architecture page should fetch:
+
+```text
+${VITE_API_BASE_URL}/api/architecture
+```
+
+Use [ARCHITECTURE_PAGE.md](ARCHITECTURE_PAGE.md) for the exact page structure and Lovable prompt add-on.
 
 ## CORS
 

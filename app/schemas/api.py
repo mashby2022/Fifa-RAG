@@ -31,3 +31,25 @@ class HealthResponse(BaseModel):
     generator_provider: str
     nvidia_configured: bool
     document_count: int
+
+
+class ArchitectureStep(BaseModel):
+    title: str
+    description: str
+    technologies: list[str]
+
+
+class ArchitectureLayer(BaseModel):
+    name: str
+    purpose: str
+    examples: list[str]
+
+
+class ArchitectureResponse(BaseModel):
+    title: str
+    subtitle: str
+    overview: str
+    pipeline: list[ArchitectureStep]
+    story_layers: list[ArchitectureLayer]
+    nvidia_technologies: list[ArchitectureStep]
+    demo_callouts: list[str]
