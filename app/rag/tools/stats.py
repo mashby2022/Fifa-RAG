@@ -18,8 +18,28 @@ STATS_TERMS = {
     "average",
     "top",
     "rank",
+    "place",
+    "placed",
+    "placement",
+    "finish",
+    "finished",
+    "highest",
+    "best",
+    "furthest",
     "stats",
     "statistics",
+}
+
+PERFORMANCE_RANKS = {
+    "final": 8,
+    "final round": 7,
+    "semi-finals": 6,
+    "third-place match": 6,
+    "quarter-final": 5,
+    "quarter-finals": 5,
+    "round of 16": 4,
+    "second group stage": 3,
+    "group stage": 2,
 }
 
 
@@ -58,6 +78,8 @@ class DuckDBStatsTool:
         lowered = question.lower()
         if "schema" in lowered or "table" in lowered or "column" in lowered:
             return self.schema_answer()
+        if _looks_like_team_finish_question(lowered):
+            return self.team_best_finish_answer(question)
         if "top scorer" in lowered or "golden boot" in lowered:
             return self.top_scorer_answer(question)
         if "how many goals" in lowered or ("total" in lowered and "goal" in lowered):
@@ -67,6 +89,69 @@ class DuckDBStatsTool:
         if "most goals" in lowered and "team" in lowered:
             return self.team_goals_answer(question)
         return None
+
+    def team_best_finish_answer(self, question: str) -> ToolAnswer | None:
+        team = self._team_from_question(question)
+        if not team:
+            return None
+
+        rows = [
+            row
+            for row in self._table_rows("qualified_teams")
+            if row.get("team_name", "").casefold() == team.casefold()
+        ]
+        lowered = question.lower()
+        if "women" in lowered:
+            rows = [row for row in rows if "Women's World Cup" in row.get("tournament_name", "")]
+            scope = "women's"
+        elif _asks_overall_competition(lowered):
+            scope = "overall"
+        else:
+            rows = [row for row in rows if "Men's World Cup" in row.get("tournament_name", "")]
+            scope = "men's"
+
+        ranked = [
+            (PERFORMANCE_RANKS.get(row.get("performance", "").lower(), 0), _row_year(row) or 0, row)
+            for row in rows
+        ]
+        ranked = [item for item in ranked if item[0] > 0]
+        if not ranked:
+            return None
+
+        best_rank = max(rank for rank, _, _ in ranked)
+        best_rows = [row for rank, _, row in ranked if rank == best_rank]
+        best_rows.sort(key=lambda row: _row_year(row) or 0)
+        performance = best_rows[0].get("performance", "best finish")
+        tournaments = ", ".join(row.get("tournament_name", "") for row in best_rows)
+
+        answer = f"{team}'s highest World Cup finish"
+        if scope in {"men's", "women's"}:
+            answer += f" in the {scope} tournament"
+        answer += f" was {performance}, reached at {tournaments}."
+
+        if scope == "overall":
+            mens_rows = [row for _, _, row in ranked if "Men's World Cup" in row.get("tournament_name", "")]
+            mens_best = self._best_performance_rows(mens_rows)
+            if mens_best and mens_best[0].get("performance") != performance:
+                mens_tournaments = ", ".join(row.get("tournament_name", "") for row in mens_best)
+                answer += (
+                    f" In the men's tournament, {team}'s best finish was "
+                    f"{mens_best[0].get('performance')}, reached at {mens_tournaments}."
+                )
+
+        return ToolAnswer(
+            tool_name="duckdb_stats",
+            answer=answer,
+            citations=[{"table": "qualified_teams", "record_id": row.get("key_id", "")} for row in best_rows[:8]],
+            diagnostics={
+                "backend": self.backend,
+                "rows_scanned": len(rows),
+                "operation": "team_best_finish",
+                "team": team,
+                "scope": scope,
+            },
+            worklog=["Selected DuckDB", "Schema context ready", "Querying qualified_teams for team finish"],
+        )
 
     def schema_answer(self) -> ToolAnswer | None:
         datasets = self._csv_rows("codebook/datasets")
@@ -186,6 +271,33 @@ class DuckDBStatsTool:
         with path.open("r", encoding="utf-8-sig", newline="") as handle:
             return list(csv.DictReader(handle))
 
+    def _team_from_question(self, question: str) -> str | None:
+        lowered = _normalized(question)
+        teams = self._table_rows("teams")
+        aliases = [
+            (row.get("team_name", ""), row.get("team_code", ""))
+            for row in teams
+            if row.get("team_name")
+        ]
+        aliases.sort(key=lambda item: len(item[0]), reverse=True)
+        for name, code in aliases:
+            if _contains_normalized(lowered, name) or (code and _contains_normalized(lowered, code)):
+                return name
+        return None
+
+    @staticmethod
+    def _best_performance_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+        ranked = [
+            (PERFORMANCE_RANKS.get(row.get("performance", "").lower(), 0), _row_year(row) or 0, row)
+            for row in rows
+        ]
+        ranked = [item for item in ranked if item[0] > 0]
+        if not ranked:
+            return []
+        best_rank = max(rank for rank, _, _ in ranked)
+        best_rows = [row for rank, _, row in ranked if rank == best_rank]
+        return sorted(best_rows, key=lambda row: _row_year(row) or 0)
+
     @staticmethod
     def _has_duckdb() -> bool:
         try:
@@ -198,6 +310,25 @@ class DuckDBStatsTool:
 def _looks_like_stats_question(question: str) -> bool:
     lowered = question.lower()
     return any(term in lowered for term in STATS_TERMS)
+
+
+def _looks_like_team_finish_question(lowered: str) -> bool:
+    finish_terms = ("highest", "best", "furthest", "place", "placed", "placement", "finish", "finished")
+    return any(term in lowered for term in finish_terms) and "world cup" in lowered
+
+
+def _asks_overall_competition(lowered: str) -> bool:
+    return any(
+        phrase in lowered
+        for phrase in (
+            "overall",
+            "across all",
+            "all world cups",
+            "men and women",
+            "men's and women's",
+            "mens and womens",
+        )
+    )
 
 
 def _first_year(text: str) -> int | None:
@@ -218,6 +349,17 @@ def _player_name(row: dict[str, str]) -> str:
     if given == "not applicable":
         given = ""
     return " ".join(part for part in [given, family] if part).strip()
+
+
+def _normalized(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", text.casefold()).strip()
+
+
+def _contains_normalized(haystack: str, needle: str) -> bool:
+    normalized_needle = _normalized(needle)
+    if not normalized_needle:
+        return False
+    return re.search(rf"(?:^|\s){re.escape(normalized_needle)}(?:\s|$)", haystack) is not None
 
 
 def _stringify(value: object) -> str:

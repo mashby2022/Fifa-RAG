@@ -38,3 +38,35 @@ def test_stats_tool_identifies_top_scorer_from_csv_fallback(tmp_path: Path) -> N
 
     assert answer is not None
     assert "Thomas Müller (Germany) with 2 goals" in answer.answer
+
+
+def test_stats_tool_answers_team_best_finish_from_qualified_teams(tmp_path: Path) -> None:
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    (raw / "teams.csv").write_text(
+        "key_id,team_id,team_name,team_code\n"
+        "50,T-50,Nigeria,NGA\n",
+        encoding="utf-8",
+    )
+    (raw / "qualified_teams.csv").write_text(
+        "key_id,tournament_id,tournament_name,team_id,team_name,team_code,count_matches,performance\n"
+        "267,WC-1994,1994 FIFA Men's World Cup,T-50,Nigeria,NGA,4,round of 16\n"
+        "332,WC-1999,1999 FIFA Women's World Cup,T-50,Nigeria,NGA,4,quarter-final\n"
+        "506,WC-2014,2014 FIFA Men's World Cup,T-50,Nigeria,NGA,4,round of 16\n",
+        encoding="utf-8",
+    )
+
+    tool = DuckDBStatsTool(db_path=str(tmp_path / "missing.duckdb"), raw_data_dir=str(raw))
+    answer = tool.maybe_answer("which world cup did Nigeria place the highest")
+
+    assert answer is not None
+    assert "round of 16" in answer.answer
+    assert "1994 FIFA Men's World Cup" in answer.answer
+    assert "1999 FIFA Women's World Cup" not in answer.answer
+    assert answer.diagnostics["operation"] == "team_best_finish"
+
+    overall = tool.maybe_answer("overall, which world cup did Nigeria place the highest across all world cups")
+
+    assert overall is not None
+    assert "1999 FIFA Women's World Cup" in overall.answer
+    assert "men's tournament" in overall.answer
