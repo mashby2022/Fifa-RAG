@@ -12,6 +12,7 @@ from app.rag.corpus.builders import (
     build_tournament_docs,
     build_tournament_standing_summaries,
 )
+from app.rag.corpus.curation import select_demo_documents
 from app.rag.corpus.sources import load_fjelstul_tables
 
 __all__ = [
@@ -26,4 +27,5 @@ __all__ = [
     "build_tournament_docs",
     "build_tournament_standing_summaries",
     "load_fjelstul_tables",
+    "select_demo_documents",
 ]

@@ -17,6 +17,8 @@ def health() -> HealthResponse:
         generator_provider=settings.generator_provider,
         reranker_provider=settings.reranker_provider,
         nvidia_configured=bool(settings.nvidia_api_key),
+        corpus_profile=settings.corpus_profile,
+        demo_corpus_max_docs=settings.demo_corpus_max_docs,
         document_count=rag_service.document_count,
     )
 

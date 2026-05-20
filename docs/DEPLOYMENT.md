@@ -55,6 +55,7 @@ docker run --env-file .env -p 8000:8000 worldcup-rag-api
 ## Production Notes
 
 - Keep `VECTOR_BACKEND=memory` for the first hosted data demo.
+- Keep `CORPUS_PROFILE=demo` and `DEMO_CORPUS_MAX_DOCS=1500` for the lean Lovable/Render demo. Use `CORPUS_PROFILE=full` when Milvus or cached embeddings are ready.
 - Tom's local data bundle is not committed to Git. For Render, use the GitHub fallback until Phase 5 packages the data as a release artifact or object-store download.
 - To deploy Tom's bundle, set `DATA_BUNDLE_URL` to a zip containing `raw/` and/or `processed/`, or set `RAW_DATA_ZIP_URL`, `PROCESSED_DATA_ZIP_URL`, and `INDEXES_DATA_ZIP_URL` separately.
 - Set `RERANKER_PROVIDER=nvidia` when you are ready to use NeMo Retriever Reranking NIM.
@@ -62,4 +63,4 @@ docker run --env-file .env -p 8000:8000 worldcup-rag-api
 - Add the final Lovable domains to `CORS_ORIGINS`.
 - Store `NVIDIA_API_KEY` only in Render, never in Lovable or GitHub.
 - Do not commit `.env` or partner raw datasets.
-- After deployment, `/api/health` should show a `document_count` much larger than `5`.
+- After deployment, `/api/health` should show `corpus_profile: "demo"` and `document_count: 1500`.

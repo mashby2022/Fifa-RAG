@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     milvus_collection: str = "worldcup_docs"
     generated_docs_path: str = "data/generated_docs/worldcup_docs.jsonl"
     local_data_dir: str = "data"
+    corpus_profile: str = "demo"
+    demo_corpus_max_docs: int = 1500
     include_openfootball_docs: bool = False
     auto_ingest_on_startup: bool = False
     initial_retrieval_k: int = 30

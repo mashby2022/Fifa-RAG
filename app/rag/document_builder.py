@@ -15,14 +15,22 @@ from app.rag.corpus import (
     build_tournament_standing_summaries,
     load_fjelstul_tables,
 )
+from app.rag.corpus.curation import select_demo_documents
 from app.schemas.documents import WorldCupDocument
 
 
 def build_worldcup_documents(output_path: Path) -> list[WorldCupDocument]:
     tables = load_fjelstul_tables(settings.local_data_dir)
     documents = build_document_corpus(tables)
+    documents = apply_corpus_profile(documents)
     write_documents(output_path, documents)
     return documents
+
+
+def apply_corpus_profile(documents: list[WorldCupDocument]) -> list[WorldCupDocument]:
+    if settings.corpus_profile.lower() == "full":
+        return documents
+    return select_demo_documents(documents, settings.demo_corpus_max_docs)
 
 
 def build_document_corpus(tables: dict[str, list[dict[str, str]]]) -> list[WorldCupDocument]:

@@ -38,6 +38,8 @@ class HealthResponse(BaseModel):
     generator_provider: str
     reranker_provider: str
     nvidia_configured: bool
+    corpus_profile: str
+    demo_corpus_max_docs: int
     document_count: int
 
 

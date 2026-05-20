@@ -82,8 +82,10 @@ python scripts/ingest_dataset.py
 Expected local result with Tom's data:
 
 ```text
-Wrote 6611 generated documents to data/generated_docs/worldcup_docs.jsonl
+Wrote 1500 generated documents to data/generated_docs/worldcup_docs.jsonl
 ```
+
+The default `CORPUS_PROFILE=demo` keeps a curated slice of the full data for a faster hosted demo. Set `CORPUS_PROFILE=full` to generate the complete 6,611-document corpus.
 
 Check API health:
 

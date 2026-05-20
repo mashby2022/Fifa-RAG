@@ -142,6 +142,8 @@ For the first hosted demo, keep the backend in mock-data mode but use NVIDIA-hos
 VECTOR_BACKEND=memory
 EMBEDDING_PROVIDER=nvidia
 GENERATOR_PROVIDER=nvidia
+CORPUS_PROFILE=demo
+DEMO_CORPUS_MAX_DOCS=1500
 NVIDIA_API_KEY=<set-in-render-only>
 ```
 
@@ -163,6 +165,8 @@ This writes generated documents to:
 ```text
 data/generated_docs/worldcup_docs.jsonl
 ```
+
+By default, ingestion writes a curated demo corpus capped at 1,500 documents. Set `CORPUS_PROFILE=full` to rebuild the complete corpus from the same source tables.
 
 The generated corpus is intentionally ignored by Git. Render rebuilds it during deployment from:
 
