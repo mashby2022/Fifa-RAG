@@ -9,6 +9,9 @@ from app.schemas.documents import WorldCupDocument
 def load_documents(path: str = settings.generated_docs_path) -> list[WorldCupDocument]:
     docs_path = Path(path)
     if not docs_path.exists():
+        if settings.auto_ingest_on_startup or settings.app_env == "production":
+            _build_documents(docs_path)
+    if not docs_path.exists():
         return MOCK_DOCUMENTS
 
     documents: list[WorldCupDocument] = []
@@ -19,3 +22,12 @@ def load_documents(path: str = settings.generated_docs_path) -> list[WorldCupDoc
             documents.append(WorldCupDocument.model_validate(json.loads(line)))
 
     return documents or MOCK_DOCUMENTS
+
+
+def _build_documents(path: Path) -> None:
+    try:
+        from app.rag.document_builder import build_worldcup_documents
+
+        build_worldcup_documents(path)
+    except Exception:
+        return

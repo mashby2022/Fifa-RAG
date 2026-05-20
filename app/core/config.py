@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     milvus_uri: str = "http://localhost:19530"
     milvus_collection: str = "worldcup_docs"
     generated_docs_path: str = "data/generated_docs/worldcup_docs.jsonl"
+    auto_ingest_on_startup: bool = False
 
     embedding_provider: str = "local_hash"
     embedding_dim: int = 384

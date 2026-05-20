@@ -10,6 +10,8 @@ services:
         value: 3.11.11
       - key: APP_ENV
         value: production
+      - key: AUTO_INGEST_ON_STARTUP
+        value: true
       - key: VECTOR_BACKEND
         value: memory
       - key: EMBEDDING_PROVIDER

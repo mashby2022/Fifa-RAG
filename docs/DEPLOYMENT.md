@@ -18,6 +18,7 @@ Start command: uvicorn app.main:app --host 0.0.0.0 --port $PORT
 ```text
 PYTHON_VERSION=3.11.11
 APP_ENV=production
+AUTO_INGEST_ON_STARTUP=true
 VECTOR_BACKEND=memory
 EMBEDDING_PROVIDER=nvidia
 GENERATOR_PROVIDER=nvidia
