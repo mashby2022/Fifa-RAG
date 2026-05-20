@@ -41,7 +41,7 @@ services:
       - key: NVIDIA_EMBEDDING_MODEL
         value: nvidia/nv-embedqa-e5-v5
       - key: NVIDIA_GENERATOR_MODEL
-        value: meta/llama-3.1-70b-instruct
+        value: meta/llama-3.1-8b-instruct
       - key: NVIDIA_RERANKER_MODEL
         value: nvidia/llama-nemotron-rerank-1b-v2
       - key: NVIDIA_RERANKER_URL

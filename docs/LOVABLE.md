@@ -51,7 +51,11 @@ Content-Type: application/json
 {
   "message": "Who won the men's World Cup in 2014?",
   "top_k": 5,
-  "query_mode": "auto"
+  "query_mode": "auto",
+  "history": [
+    {"role": "user", "content": "Who won the World Cup in 2022?"},
+    {"role": "assistant", "content": "Argentina won the 2022 FIFA World Cup."}
+  ]
 }
 ```
 
@@ -104,6 +108,8 @@ Left panel:
 - Preset question buttons from GET /api/demo/questions.
 - User and assistant messages.
 - Under assistant answers, show citation chips with doc title and table/record IDs.
+- Send recent chat turns as `history` on each POST so follow-up questions have previous-chat context.
+- Render Markdown tables in assistant answers, and render any `artifacts` item with `type: "table"` as a sortable table.
 - Use answer status badges: grounded, partial, no_answer, invalid_premise.
 
 Right panel:
@@ -118,7 +124,7 @@ API base URL comes from VITE_API_BASE_URL.
 Endpoints:
 - GET /api/health
 - GET /api/demo/questions
-- POST /api/chat with { "message": string, "top_k": number, "query_mode": string }
+- POST /api/chat with { "message": string, "top_k": number, "query_mode": string, "history": [{ "role": "user" | "assistant", "content": string }] }
 
 Design language:
 - Clear, enterprise demo style inspired by NVIDIA internal demo tools.

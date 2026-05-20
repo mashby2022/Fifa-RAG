@@ -68,7 +68,7 @@ def parse_query(message: str, query_mode: str = "auto") -> ParsedQuery:
         invalid_reason = "invalid_tournament_year"
     elif query_mode != "auto":
         intent, layers = _mode_intent(query_mode)
-    elif any(term in lowered for term in SCHEMA_TERMS):
+    elif _is_schema_question(lowered):
         intent = "schema_question"
         layers = ["schema"]
     elif any(term in lowered for term in ARTICLE_TERMS):
@@ -123,8 +123,14 @@ def _rewrite_query(message: str, years: list[int]) -> str:
         additions.extend(["final", "winning goal", "goal scorer", "match narrative"])
     if len(years) > 1:
         additions.extend(["team performance timeline", "stage reached", "record", "goals for against"])
-    if any(term in lowered for term in SCHEMA_TERMS):
+    if _is_schema_question(lowered):
         additions.extend(["codebook", "dataset description", "variable description"])
     if not additions:
         return message
     return f"{message} {' '.join(additions)}"
+
+
+def _is_schema_question(lowered: str) -> bool:
+    if any(term in lowered for term in {"schema", "codebook", "column", "field", "variable", "dataset"}):
+        return True
+    return bool(re.search(r"\b(which|what)\s+table\b", lowered))

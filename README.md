@@ -28,6 +28,8 @@ Use `CORPUS_PROFILE=full` to build the full corpus, which is currently about 6,6
 - Retrieve match, tournament, player, team, award, goal, schema, and article documents through the RAG layer.
 - Handle follow-up workflows such as the 2022 final winner, opponent, score, penalties, referee, and referee assignments.
 - Generate a World Cup match-map artifact for the 2022 tournament workflow.
+- Use prior chat turns sent in `history` to resolve follow-up questions.
+- Return Markdown tables and structured `table` artifacts when the user asks for tabular output.
 - Verify prior grounded answers through Tavily web search when the user asks to check online.
 - Explain invalid premises such as non-tournament years.
 - Clarify club-versus-national-team mismatches.
@@ -96,7 +98,7 @@ The repo is NeMo/NIM-aligned:
 
 - `EMBEDDING_PROVIDER=nvidia` uses NVIDIA-hosted embedding APIs when available.
 - If embedding calls fail at runtime, the backend falls back to `LocalHashEmbedder` so Render still serves the demo.
-- `GENERATOR_PROVIDER=nvidia` uses an OpenAI-compatible NVIDIA NIM chat endpoint.
+- `GENERATOR_PROVIDER=nvidia` uses an OpenAI-compatible NVIDIA NIM chat endpoint. Locally, the default is `GENERATOR_PROVIDER=extractive`, so no local LLM is running unless you add one yourself.
 - `RERANKER_PROVIDER=nvidia` is wired for NeMo Retriever Reranking NIM, but the hosted demo currently keeps `RERANKER_PROVIDER=none`.
 - `VECTOR_BACKEND=memory` is the default lightweight demo mode.
 - `VECTOR_BACKEND=milvus` enables the Milvus adapter when a local or hosted Milvus/Zilliz endpoint is configured.
@@ -164,7 +166,11 @@ Content-Type: application/json
 
 {
   "message": "Which World Cup did USA women's place the highest?",
-  "top_k": 5
+  "top_k": 5,
+  "history": [
+    {"role": "user", "content": "Who won the World Cup in 2022?"},
+    {"role": "assistant", "content": "Argentina won the 2022 FIFA World Cup."}
+  ]
 }
 ```
 
@@ -217,7 +223,7 @@ GENERATOR_PROVIDER=nvidia
 RERANKER_PROVIDER=none
 NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
 NVIDIA_EMBEDDING_MODEL=nvidia/nv-embedqa-e5-v5
-NVIDIA_GENERATOR_MODEL=meta/llama-3.1-70b-instruct
+NVIDIA_GENERATOR_MODEL=meta/llama-3.1-8b-instruct
 NVIDIA_API_KEY=<set-in-render-only>
 CORS_ORIGINS=https://fifa-fan-chatter.lovable.app,https://*.lovable.app,https://*.lovableproject.com
 ```

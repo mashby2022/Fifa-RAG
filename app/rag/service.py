@@ -18,48 +18,45 @@ class RagService:
         self.last_answer: str | None = None
 
     def answer(self, request: ChatRequest) -> ChatResponse:
-        parsed = parse_query(request.message, request.query_mode)
+        effective_message = self._contextualized_message(request)
+        parsed = parse_query(effective_message, request.query_mode)
         if parsed.invalid_reason:
             response = generate_answer(parsed, [])
-            return self._remember_and_return(request.message, self._with_diagnostics(response, parsed, 0, {"reranker": "skipped"}))
+            return self._finish_response(request.message, response, parsed, 0, {"reranker": "skipped"})
 
         if is_explicit_web_request(request.message):
-            web_query = self._web_followup_query(request.message)
-            expected_answer = self.last_answer if self.last_answer and _is_web_check_followup(request.message) else None
+            web_query = self._web_followup_query(request)
+            expected_answer = self.last_answer if self.last_answer and _is_web_check_followup(request.message) else self._last_history_answer(request)
             web_answer = web_search_tool.answer(web_query, expected_answer=expected_answer)
             if web_answer:
                 response = self._tool_response(parsed, web_answer)
-                return self._remember_and_return(
-                    request.message,
-                    self._with_diagnostics(
-                        response,
-                        parsed,
-                        0,
-                        {"reranker": "skipped", "tool_route": web_answer.tool_name, "web_query": web_query},
-                    ),
-                )
+                return self._finish_response(request.message, response, parsed, 0, {"reranker": "skipped", "tool_route": web_answer.tool_name, "web_query": web_query})
 
-        workflow_answer = worldcup_workflow_tool.maybe_answer(request.message)
+        workflow_answer = None
+        if not request.history:
+            workflow_answer = worldcup_workflow_tool.maybe_answer(request.message)
+        if not workflow_answer:
+            workflow_answer = worldcup_workflow_tool.maybe_answer(effective_message)
         if workflow_answer:
             response = self._tool_response(parsed, workflow_answer)
-            return self._remember_and_return(request.message, self._with_diagnostics(response, parsed, 0, {"reranker": "skipped", "tool_route": workflow_answer.tool_name}))
+            return self._finish_response(request.message, response, parsed, 0, {"reranker": "skipped", "tool_route": workflow_answer.tool_name})
 
-        tool_answer = stats_tool.maybe_answer(request.message)
+        tool_answer = stats_tool.maybe_answer(effective_message)
         if tool_answer:
             response = self._tool_response(parsed, tool_answer)
-            return self._remember_and_return(request.message, self._with_diagnostics(response, parsed, 0, {"reranker": "skipped", "tool_route": tool_answer.tool_name}))
+            return self._finish_response(request.message, response, parsed, 0, {"reranker": "skipped", "tool_route": tool_answer.tool_name})
 
-        retrieval_query = parsed.query_rewrite or request.message
+        retrieval_query = parsed.query_rewrite or effective_message
         initial_k = max(request.top_k, settings.initial_retrieval_k)
         candidates = vector_store.search(retrieval_query, parsed.filters, initial_k)
         if not candidates:
-            web_answer = web_search_tool.maybe_answer(request.message)
+            web_answer = web_search_tool.maybe_answer(effective_message)
             if web_answer:
                 response = self._tool_response(parsed, web_answer)
-                return self._remember_and_return(request.message, self._with_diagnostics(response, parsed, 0, {"reranker": "skipped", "tool_route": web_answer.tool_name}))
-        retrieved, rerank_diagnostics = maybe_rerank(request.message, candidates, request.top_k)
+                return self._finish_response(request.message, response, parsed, 0, {"reranker": "skipped", "tool_route": web_answer.tool_name})
+        retrieved, rerank_diagnostics = maybe_rerank(effective_message, candidates, request.top_k)
         response = generate_answer(parsed, retrieved)
-        return self._remember_and_return(request.message, self._with_diagnostics(response, parsed, len(candidates), rerank_diagnostics))
+        return self._finish_response(request.message, response, parsed, len(candidates), rerank_diagnostics)
 
     @property
     def document_count(self) -> int:
@@ -113,17 +110,100 @@ class RagService:
             artifacts=tool_answer.artifacts,
         )
 
-    def _web_followup_query(self, message: str) -> str:
-        if self.last_answer and self.last_user_message and _is_web_check_followup(message):
-            return _verification_query(self.last_user_message, self.last_answer)
-        if self.last_answer:
-            return f"{self.last_user_message or ''} {self.last_answer} {message}".strip()
-        return message
+    def _web_followup_query(self, request: ChatRequest) -> str:
+        previous_user = self.last_user_message or self._last_history_user_message(request)
+        previous_answer = self.last_answer or self._last_history_answer(request)
+        if previous_answer and previous_user and _is_web_check_followup(request.message):
+            return _verification_query(previous_user, previous_answer)
+        if previous_answer:
+            return f"{previous_user or ''} {previous_answer} {request.message}".strip()
+        return request.message
+
+    def _contextualized_message(self, request: ChatRequest) -> str:
+        previous_user = self._last_history_user_message(request) or self.last_user_message
+        previous_answer = self._last_history_answer(request) or self.last_answer
+        if not previous_user or not _is_contextual_followup(request.message):
+            return request.message
+        context = previous_user
+        if previous_answer:
+            context = f"{previous_user} Assistant answer: {previous_answer}"
+        return f"Previous chat context: {context}. Follow-up question: {request.message}"
+
+    @staticmethod
+    def _last_history_user_message(request: ChatRequest) -> str | None:
+        for item in reversed(request.history):
+            if item.role == "user":
+                return item.content
+        return None
+
+    @staticmethod
+    def _last_history_answer(request: ChatRequest) -> str | None:
+        for item in reversed(request.history):
+            if item.role == "assistant":
+                return item.content
+        return None
+
+    def _finish_response(
+        self,
+        message: str,
+        response: ChatResponse,
+        parsed,
+        initial_count: int,
+        rerank_diagnostics: dict[str, object],
+    ) -> ChatResponse:
+        response = self._with_diagnostics(response, parsed, initial_count, rerank_diagnostics)
+        self._add_table_artifact_if_requested(message, response)
+        return self._remember_and_return(message, response)
 
     def _remember_and_return(self, message: str, response: ChatResponse) -> ChatResponse:
         self.last_user_message = message
         self.last_answer = response.answer
         return response
+
+    @staticmethod
+    def _add_table_artifact_if_requested(message: str, response: ChatResponse) -> None:
+        if not _wants_table(message) or response.artifacts:
+            return
+
+        columns = ["Title", "Type", "Year", "Source", "Summary"]
+        rows: list[dict[str, object]] = []
+        for item in response.retrieved_context[:8]:
+            refs = ", ".join(f"{ref.table}:{ref.record_id}" for ref in item.doc.source_refs[:2])
+            rows.append(
+                {
+                    "Title": item.doc.title,
+                    "Type": item.doc.entity_type,
+                    "Year": item.doc.tournament_year,
+                    "Source": refs,
+                    "Summary": _shorten(item.doc.text, 150),
+                }
+            )
+
+        if not rows and response.citations:
+            columns = ["Title", "Source Table", "Record ID"]
+            for citation in response.citations[:8]:
+                first_ref = citation.source_refs[0] if citation.source_refs else None
+                rows.append(
+                    {
+                        "Title": citation.title,
+                        "Source Table": first_ref.table if first_ref else "",
+                        "Record ID": first_ref.record_id if first_ref else citation.doc_id,
+                    }
+                )
+
+        if not rows:
+            return
+
+        response.artifacts.append(
+            {
+                "type": "table",
+                "title": "World Cup answer table",
+                "columns": columns,
+                "rows": rows,
+            }
+        )
+        if "|" not in response.answer:
+            response.answer = f"{response.answer}\n\n{_markdown_table(columns, rows)}"
 
     @staticmethod
     def _with_diagnostics(
@@ -147,6 +227,10 @@ class RagService:
 rag_service = RagService()
 
 
+TABLE_REQUEST_RE = re.compile(r"\b(table|tabulate|spreadsheet|rows and columns)\b", re.IGNORECASE)
+FOLLOWUP_PRONOUN_RE = re.compile(r"\b(they|them|their|that|it|there|those|he|she|his|her)\b", re.IGNORECASE)
+
+
 def _is_web_check_followup(message: str) -> bool:
     lowered = message.lower()
     low_information_terms = (
@@ -160,6 +244,39 @@ def _is_web_check_followup(message: str) -> bool:
     is_short_followup = len(lowered.split()) <= 6 and any(term in lowered for term in low_information_terms)
     has_web_language = any(term in lowered for term in web_terms) and any(term in lowered for term in low_information_terms)
     return is_short_followup or has_web_language
+
+
+def _is_contextual_followup(message: str) -> bool:
+    lowered = message.lower().strip()
+    if len(lowered.split()) <= 10 and FOLLOWUP_PRONOUN_RE.search(lowered):
+        return True
+    followup_starts = ("what about", "how about", "and ", "also ", "then ", "what was", "who did", "who was")
+    return lowered.startswith(followup_starts)
+
+
+def _wants_table(message: str) -> bool:
+    return bool(TABLE_REQUEST_RE.search(message))
+
+
+def _shorten(text: str, limit: int) -> str:
+    normalized = " ".join(text.split())
+    if len(normalized) <= limit:
+        return normalized
+    return normalized[: limit - 3].rstrip() + "..."
+
+
+def _markdown_table(columns: list[str], rows: list[dict[str, object]]) -> str:
+    header = "| " + " | ".join(columns) + " |"
+    divider = "| " + " | ".join("---" for _ in columns) + " |"
+    body = [
+        "| " + " | ".join(_escape_cell(str(row.get(column, ""))) for column in columns) + " |"
+        for row in rows
+    ]
+    return "\n".join([header, divider, *body])
+
+
+def _escape_cell(value: str) -> str:
+    return value.replace("|", "\\|").replace("\n", " ")
 
 
 def _verification_query(previous_question: str, previous_answer: str) -> str:

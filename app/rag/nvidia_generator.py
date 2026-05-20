@@ -43,7 +43,8 @@ class NvidiaGenerator:
                     "Answer only from the provided context records. If the context does not "
                     "support the answer, say that the current corpus does not contain enough "
                     "information. Be concise and factual. Do not invent citations; citations "
-                    "are attached by the API separately."
+                    "are attached by the API separately. If the user asks for a table, return "
+                    "a compact GitHub-flavored Markdown table with clear column names."
                 ),
             },
             {
@@ -62,7 +63,7 @@ class NvidiaGenerator:
             "model": self.model,
             "messages": messages,
             "temperature": 0.1,
-            "max_tokens": 350,
+            "max_tokens": 600,
         }
         with httpx.Client(timeout=self.timeout_seconds) as client:
             response = client.post(

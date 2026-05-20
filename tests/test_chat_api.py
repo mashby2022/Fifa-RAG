@@ -64,3 +64,35 @@ def test_club_team_question_is_clarified() -> None:
     assert response.status_code == 200
     assert payload["status"] == "invalid_premise"
     assert "club team" in payload["answer"]
+
+
+def test_chat_history_context_resolves_followup() -> None:
+    response = client.post(
+        "/api/chat",
+        json={
+            "message": "Who did they play in the final?",
+            "history": [
+                {"role": "user", "content": "Who won the World Cup in 2022?"},
+                {"role": "assistant", "content": "Argentina won the 2022 FIFA World Cup."},
+            ],
+        },
+    )
+    payload = response.json()
+    assert response.status_code == 200
+    assert payload["status"] == "grounded"
+    assert "Argentina" in payload["answer"]
+    assert "France" in payload["answer"]
+
+
+def test_table_request_returns_markdown_and_table_artifact() -> None:
+    response = client.post(
+        "/api/chat",
+        json={"message": "Make a table for the 2014 World Cup final.", "top_k": 3},
+    )
+    payload = response.json()
+    assert response.status_code == 200
+    assert payload["status"] == "grounded"
+    assert "| Title | Type | Year | Source | Summary |" in payload["answer"]
+    assert payload["artifacts"]
+    assert payload["artifacts"][0]["type"] == "table"
+    assert payload["artifacts"][0]["rows"]

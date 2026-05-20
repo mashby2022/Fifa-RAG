@@ -33,12 +33,12 @@ class WorldCupWorkflowTool:
 
         if year and any(term in lowered for term in MAP_TERMS):
             return self.map_answer(year)
-        if year and any(term in lowered for term in WIN_TERMS):
-            return self.winner_answer(year)
-        if any(term in lowered for term in FINAL_OPPONENT_TERMS):
-            return self.final_opponent_answer(year)
         if _has_score_intent(lowered):
             return self.score_answer(year)
+        if any(term in lowered for term in FINAL_OPPONENT_TERMS):
+            return self.final_opponent_answer(year)
+        if year and any(term in lowered for term in WIN_TERMS):
+            return self.winner_answer(year)
         if any(term in lowered for term in WEB_CONFIRM_TERMS) and self.state.final_match_id:
             return self.web_confirmation_answer()
         if "other match" in lowered and "referee" in lowered:
@@ -70,7 +70,7 @@ class WorldCupWorkflowTool:
         final = self._final_match(year)
         if not final:
             return None
-        winner = self.state.winner or self._winner_from_final(final)
+        winner = self.state.winner if year == self.state.year and self.state.winner else self._winner_from_final(final)
         teams = [final.get("home_team_name", ""), final.get("away_team_name", "")]
         opponent = teams[1] if teams[0] == winner else teams[0]
         self._remember_final(final, winner)

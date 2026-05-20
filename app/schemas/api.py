@@ -9,6 +9,12 @@ class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1)
     top_k: int = Field(default=5, ge=1, le=10)
     query_mode: Literal["auto", "matches", "teams", "players", "tournaments", "schema", "compare_eras", "articles"] = "auto"
+    history: list["ChatMessage"] = Field(default_factory=list)
+
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(..., min_length=1)
 
 
 class Citation(BaseModel):
@@ -41,6 +47,8 @@ class HealthResponse(BaseModel):
     embedding_provider: str
     embedding_runtime_provider: str
     generator_provider: str
+    generator_runtime: str
+    generator_model: str
     reranker_provider: str
     nvidia_configured: bool
     corpus_profile: str

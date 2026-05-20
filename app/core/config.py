@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     nvidia_embedding_model: str = "nvidia/nv-embedqa-e5-v5"
 
     generator_provider: str = "extractive"
-    nvidia_generator_model: str = "meta/llama-3.1-70b-instruct"
+    nvidia_generator_model: str = "meta/llama-3.1-8b-instruct"
     reranker_provider: str = "none"
     nvidia_reranker_model: str = "nvidia/llama-nemotron-rerank-1b-v2"
     nvidia_reranker_url: str = "https://ai.api.nvidia.com/v1/retrieval/nvidia/llama-nemotron-rerank-1b-v2/reranking"

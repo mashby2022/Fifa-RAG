@@ -17,6 +17,8 @@ def health() -> HealthResponse:
         embedding_provider=settings.embedding_provider,
         embedding_runtime_provider=rag_service.embedding_runtime_provider,
         generator_provider=settings.generator_provider,
+        generator_runtime="hosted_nvidia_nim" if settings.generator_provider == "nvidia" else "local_extractive",
+        generator_model=settings.nvidia_generator_model if settings.generator_provider == "nvidia" else "extractive",
         reranker_provider=settings.reranker_provider,
         nvidia_configured=bool(settings.nvidia_api_key),
         corpus_profile=settings.corpus_profile,
