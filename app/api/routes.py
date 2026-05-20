@@ -29,14 +29,12 @@ def health() -> HealthResponse:
 @router.get("/demo/questions", response_model=list[str])
 def demo_questions() -> list[str]:
     return [
-        "Who won the men's World Cup in 2014, and who did they beat in the final?",
-        "Which country hosted the 2018 World Cup?",
+        "Who won the World Cup in 2022?",
+        "Who did Argentina play in the 2022 final, and what was the score?",
+        "Who refereed the 2022 final, and what other 2022 matches did they officiate?",
+        "Create a map of the nations and head-to-head results for the 2022 World Cup.",
         "How did Argentina perform across the 2010, 2014, and 2018 World Cups?",
-        "Who was Germany's hero in the 2014 final?",
-        "What do we know about Thomas Muller in World Cups?",
         "Which table tracks goals and goal scorers?",
-        "Who won the World Cup in 2000?",
-        "How did FC Barcelona perform in the 2014 World Cup?",
     ]
 
 
