@@ -163,6 +163,11 @@ This writes generated documents to:
 data/generated_docs/worldcup_docs.jsonl
 ```
 
+The generated corpus is intentionally ignored by Git. Render rebuilds it during deployment from:
+
+- https://github.com/jfjelstul/worldcup
+- https://github.com/openfootball/worldcup
+
 ## Milvus
 
 Start local Milvus:

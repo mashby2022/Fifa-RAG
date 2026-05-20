@@ -12,6 +12,9 @@ class RagService:
         retrieved = vector_store.search(request.message, parsed.filters, request.top_k)
         return generate_answer(parsed, retrieved)
 
+    @property
+    def document_count(self) -> int:
+        return vector_store.document_count
+
 
 rag_service = RagService()
-

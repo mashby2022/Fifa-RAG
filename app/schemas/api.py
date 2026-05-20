@@ -30,3 +30,4 @@ class HealthResponse(BaseModel):
     embedding_provider: str
     generator_provider: str
     nvidia_configured: bool
+    document_count: int

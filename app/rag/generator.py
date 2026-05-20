@@ -47,7 +47,7 @@ def generate_answer(parsed: ParsedQuery, retrieved: list[RetrievedDocument]) -> 
     for item in used:
         item.used = True
 
-    answer = _compose_nvidia_answer(parsed, used) if settings.generator_provider == "nvidia" else _compose_extractive_answer(used)
+    answer = _compose_nvidia_answer(parsed, used) if settings.generator_provider == "nvidia" else _compose_extractive_answer(parsed, used)
     citations = [
         Citation(doc_id=item.doc.doc_id, title=item.doc.title, source_refs=item.doc.source_refs)
         for item in used
@@ -62,8 +62,11 @@ def generate_answer(parsed: ParsedQuery, retrieved: list[RetrievedDocument]) -> 
     )
 
 
-def _compose_extractive_answer(retrieved: list[RetrievedDocument]) -> str:
+def _compose_extractive_answer(parsed: ParsedQuery, retrieved: list[RetrievedDocument]) -> str:
     if len(retrieved) == 1:
+        timeline_answer = _trim_team_timeline(parsed, retrieved[0])
+        if timeline_answer:
+            return timeline_answer
         return retrieved[0].doc.text
     facts = " ".join(item.doc.text for item in retrieved)
     return facts
@@ -73,5 +76,19 @@ def _compose_nvidia_answer(parsed: ParsedQuery, retrieved: list[RetrievedDocumen
     try:
         answer = NvidiaGenerator().answer(parsed, retrieved)
     except Exception:
-        answer = _compose_extractive_answer(retrieved[:1])
-    return answer or _compose_extractive_answer(retrieved[:1])
+        answer = _compose_extractive_answer(parsed, retrieved[:1])
+    return answer or _compose_extractive_answer(parsed, retrieved[:1])
+
+
+def _trim_team_timeline(parsed: ParsedQuery, item: RetrievedDocument) -> str | None:
+    if item.doc.entity_type != "team" or "performance timeline:" not in item.doc.text:
+        return None
+    requested_years = {str(year) for year in parsed.years}
+    if len(requested_years) < 2:
+        return None
+    prefix, timeline = item.doc.text.split("performance timeline:", maxsplit=1)
+    segments = [segment.strip(" .") for segment in timeline.split(";")]
+    selected = [segment for segment in segments if segment[:4] in requested_years]
+    if not selected:
+        return None
+    return f"{prefix.strip()} performance across the requested years: {'; '.join(selected)}."

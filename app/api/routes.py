@@ -16,6 +16,7 @@ def health() -> HealthResponse:
         embedding_provider=settings.embedding_provider,
         generator_provider=settings.generator_provider,
         nvidia_configured=bool(settings.nvidia_api_key),
+        document_count=rag_service.document_count,
     )
 
 

@@ -14,6 +14,7 @@ OPENFOOTBALL_BASE = "https://raw.githubusercontent.com/openfootball/worldcup/mas
 FJELSTUL_FILES = {
     "tournaments": f"{FJELSTUL_BASE}/tournaments.csv",
     "matches": f"{FJELSTUL_BASE}/matches.csv",
+    "team_appearances": f"{FJELSTUL_BASE}/team_appearances.csv",
     "tournament_standings": f"{FJELSTUL_BASE}/tournament_standings.csv",
     "award_winners": f"{FJELSTUL_BASE}/award_winners.csv",
 }
@@ -31,6 +32,11 @@ def build_worldcup_documents(output_path: Path) -> list[WorldCupDocument]:
 
     documents.extend(_build_tournament_docs(tables["tournaments"]))
     documents.extend(_build_match_docs(tables["matches"]))
+    team_tournament_docs, team_timeline_docs = _build_team_performance_docs(
+        tables["team_appearances"], tables["tournament_standings"]
+    )
+    documents.extend(team_tournament_docs)
+    documents.extend(team_timeline_docs)
     documents.extend(_build_standing_docs(tables["tournament_standings"]))
     documents.extend(_build_tournament_standing_summaries(tables["tournament_standings"]))
     documents.extend(_build_award_docs(tables["award_winners"]))
@@ -113,11 +119,18 @@ def _build_match_docs(rows: list[dict[str, str]]) -> list[WorldCupDocument]:
             penalties = f" The match was decided on penalties, with penalty score {row.get('score_penalties')}."
         extra_time = " after extra time" if row.get("extra_time") == "1" else ""
         location = ", ".join(part for part in [row.get("stadium_name"), row.get("city_name"), row.get("country_name")] if part)
+        winner_sentence = ""
+        if row.get("home_team_win") == "1":
+            winner_sentence = f" {row['home_team_name']} won the match against {row['away_team_name']}."
+        elif row.get("away_team_win") == "1":
+            winner_sentence = f" {row['away_team_name']} won the match against {row['home_team_name']}."
+        elif row.get("draw") == "1":
+            winner_sentence = " The match was recorded as a draw."
         text = (
             f"{row['match_name']} was a {row['stage_name']} match at the {row['tournament_name']} "
             f"on {row['match_date']}. The score was {row['score']}{extra_time}: "
             f"{row['home_team_name']} {row['home_team_score']}, {row['away_team_name']} {row['away_team_score']}. "
-            f"The result was {row['result']}. It was played at {location}.{penalties}"
+            f"The result was {row['result']}.{winner_sentence} It was played at {location}.{penalties}"
         )
         documents.append(
             WorldCupDocument(
@@ -195,6 +208,97 @@ def _build_tournament_standing_summaries(rows: list[dict[str, str]]) -> list[Wor
             )
         )
     return documents
+
+
+def _build_team_performance_docs(
+    appearances: list[dict[str, str]], standings: list[dict[str, str]]
+) -> tuple[list[WorldCupDocument], list[WorldCupDocument]]:
+    standing_positions = {
+        (row["tournament_id"], row["team_id"]): int(row["position"]) for row in standings
+    }
+    by_team_tournament: dict[tuple[str, str], list[dict[str, str]]] = defaultdict(list)
+    for row in appearances:
+        by_team_tournament[(row["team_id"], row["tournament_id"])].append(row)
+
+    tournament_docs: list[WorldCupDocument] = []
+    summaries_by_team: dict[tuple[str, str], list[dict[str, object]]] = defaultdict(list)
+
+    for (team_id, tournament_id), rows in by_team_tournament.items():
+        first = rows[0]
+        year = _year(first)
+        competition = _competition(first)
+        wins = sum(int(row["win"]) for row in rows)
+        losses = sum(int(row["lose"]) for row in rows)
+        draws = sum(int(row["draw"]) for row in rows)
+        goals_for = sum(int(row["goals_for"]) for row in rows)
+        goals_against = sum(int(row["goals_against"]) for row in rows)
+        stage_reached = _stage_reached(row["stage_name"] for row in rows)
+        position = standing_positions.get((tournament_id, team_id))
+        placement = f" and finished {_position_label(position)}" if position else ""
+        text = (
+            f"{first['team_name']} at the {first['tournament_name']}: reached the {stage_reached}{placement}. "
+            f"Record: {wins} wins, {draws} draws, {losses} losses. "
+            f"Goals: {goals_for} for and {goals_against} against."
+        )
+        tournament_docs.append(
+            WorldCupDocument(
+                doc_id=f"fjelstul:team-performance:{tournament_id}:{team_id}",
+                entity_type="team",
+                competition=competition,
+                tournament_year=year,
+                title=f"{first['team_name']} at {first['tournament_name']}",
+                text=text,
+                metadata={
+                    "source": "jfjelstul/worldcup",
+                    "team": first["team_name"],
+                    "team_code": first["team_code"],
+                    "stage_reached": stage_reached,
+                    "wins": wins,
+                    "draws": draws,
+                    "losses": losses,
+                    "goals_for": goals_for,
+                    "goals_against": goals_against,
+                    "position": position,
+                },
+                source_refs=[SourceRef(table="team_appearances", record_id=row["key_id"]) for row in rows[:20]],
+            )
+        )
+        summaries_by_team[(first["team_name"], competition)].append(
+            {
+                "year": year,
+                "text": (
+                    f"{year}: reached the {stage_reached}"
+                    f"{placement}; {wins}W-{draws}D-{losses}L; goals {goals_for}-{goals_against}"
+                ),
+                "record_ids": [row["key_id"] for row in rows[:20]],
+            }
+        )
+
+    timeline_docs: list[WorldCupDocument] = []
+    for (team_name, competition), summaries in summaries_by_team.items():
+        sorted_summaries = sorted(summaries, key=lambda item: int(item["year"]))
+        if len(sorted_summaries) < 2:
+            continue
+        years = [int(item["year"]) for item in sorted_summaries]
+        timeline = "; ".join(str(item["text"]) for item in sorted_summaries)
+        timeline_docs.append(
+            WorldCupDocument(
+                doc_id=f"fjelstul:team-timeline:{competition}:{team_name.lower().replace(' ', '-')}",
+                entity_type="team",
+                competition=competition,
+                tournament_year=max(years),
+                title=f"{team_name} World Cup performance timeline",
+                text=f"{team_name}'s {competition}'s World Cup performance timeline: {timeline}.",
+                metadata={"source": "jfjelstul/worldcup", "team": team_name, "years": years},
+                source_refs=[
+                    SourceRef(table="team_appearances", record_id=record_id)
+                    for item in sorted_summaries
+                    for record_id in item["record_ids"][:2]
+                ],
+            )
+        )
+
+    return tournament_docs, timeline_docs
 
 
 def _build_award_docs(rows: list[dict[str, str]]) -> list[WorldCupDocument]:
@@ -287,3 +391,24 @@ def _position_label(position: int) -> str:
     if position == 4:
         return "in fourth place"
     return f"in position {position}"
+
+
+def _stage_reached(stages: object) -> str:
+    stage_order = {
+        "group stage": 1,
+        "first group stage": 1,
+        "second group stage": 2,
+        "round of 16": 3,
+        "quarter-finals": 4,
+        "semi-finals": 5,
+        "third-place match": 6,
+        "final": 7,
+    }
+    best_stage = "group stage"
+    best_score = 0
+    for stage in stages:
+        score = stage_order.get(str(stage), 0)
+        if score > best_score:
+            best_stage = str(stage)
+            best_score = score
+    return best_stage
