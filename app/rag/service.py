@@ -24,6 +24,10 @@ class RagService:
     def document_count(self) -> int:
         return vector_store.document_count
 
+    @property
+    def embedding_runtime_provider(self) -> str:
+        return getattr(vector_store, "embedding_runtime_provider", "unknown")
+
     @staticmethod
     def _with_diagnostics(
         response: ChatResponse,

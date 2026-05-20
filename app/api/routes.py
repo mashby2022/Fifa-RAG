@@ -14,6 +14,7 @@ def health() -> HealthResponse:
         app=settings.app_name,
         vector_backend=settings.vector_backend,
         embedding_provider=settings.embedding_provider,
+        embedding_runtime_provider=rag_service.embedding_runtime_provider,
         generator_provider=settings.generator_provider,
         reranker_provider=settings.reranker_provider,
         nvidia_configured=bool(settings.nvidia_api_key),

@@ -35,6 +35,7 @@ class HealthResponse(BaseModel):
     app: str
     vector_backend: str
     embedding_provider: str
+    embedding_runtime_provider: str
     generator_provider: str
     reranker_provider: str
     nvidia_configured: bool

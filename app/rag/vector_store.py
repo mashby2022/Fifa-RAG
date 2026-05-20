@@ -1,11 +1,14 @@
 from abc import ABC, abstractmethod
+import logging
 
 import numpy as np
 
-from app.rag.embeddings import get_embedder
+from app.rag.embeddings import LocalHashEmbedder, get_embedder
 from app.rag.document_loader import load_documents
 from app.rag.scoring import lexical_score
 from app.schemas.documents import RetrievedDocument, WorldCupDocument
+
+logger = logging.getLogger(__name__)
 
 
 class VectorStore(ABC):
@@ -22,6 +25,7 @@ class InMemoryVectorStore(VectorStore):
     def __init__(self, documents: list[WorldCupDocument]):
         self.documents = documents
         self.embedder = get_embedder()
+        self.embedding_runtime_provider = self.embedder.__class__.__name__
         self.embeddings = self._embed_documents(documents)
 
     @property
@@ -29,7 +33,7 @@ class InMemoryVectorStore(VectorStore):
         return len(self.documents)
 
     def search(self, query: str, filters: dict[str, object], top_k: int) -> list[RetrievedDocument]:
-        query_vector = np.array(self.embedder.embed(query, input_type="query"), dtype=np.float32)
+        query_vector = np.array(self._embed_query(query), dtype=np.float32)
         results: list[RetrievedDocument] = []
         for doc in self.documents:
             if not self._matches_filters(doc, filters):
@@ -53,6 +57,15 @@ class InMemoryVectorStore(VectorStore):
         return True
 
     def _embed_documents(self, documents: list[WorldCupDocument]) -> dict[str, np.ndarray]:
+        try:
+            return self._embed_documents_with_current_provider(documents)
+        except Exception as exc:
+            logger.warning("Primary embedding provider failed; falling back to LocalHashEmbedder: %s", exc)
+            self.embedder = LocalHashEmbedder()
+            self.embedding_runtime_provider = self.embedder.__class__.__name__
+            return self._embed_documents_with_current_provider(documents)
+
+    def _embed_documents_with_current_provider(self, documents: list[WorldCupDocument]) -> dict[str, np.ndarray]:
         embeddings: dict[str, np.ndarray] = {}
         batch_size = 64
         for start in range(0, len(documents), batch_size):
@@ -62,6 +75,16 @@ class InMemoryVectorStore(VectorStore):
                 {doc.doc_id: np.array(vector, dtype=np.float32) for doc, vector in zip(batch, vectors)}
             )
         return embeddings
+
+    def _embed_query(self, query: str) -> list[float]:
+        try:
+            return self.embedder.embed(query, input_type="query")
+        except Exception as exc:
+            logger.warning("Query embedding failed; rebuilding local embeddings: %s", exc)
+            self.embedder = LocalHashEmbedder()
+            self.embedding_runtime_provider = self.embedder.__class__.__name__
+            self.embeddings = self._embed_documents_with_current_provider(self.documents)
+            return self.embedder.embed(query, input_type="query")
 
 
 class MilvusVectorStore(VectorStore):
