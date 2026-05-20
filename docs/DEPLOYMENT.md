@@ -9,7 +9,7 @@ Lovable hosts the frontend. This repo should be hosted as a separate backend API
 3. Render can use `render.yaml`, or you can configure manually:
 
 ```text
-Build command: pip install -r requirements.txt
+Build command: pip install -r requirements.txt && python scripts/ingest_dataset.py
 Start command: uvicorn app.main:app --host 0.0.0.0 --port $PORT
 ```
 

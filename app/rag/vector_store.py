@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 
 from app.rag.embeddings import get_embedder
-from app.rag.mock_data import MOCK_DOCUMENTS
+from app.rag.document_loader import load_documents
 from app.schemas.documents import RetrievedDocument, WorldCupDocument
 
 
@@ -17,10 +17,7 @@ class InMemoryVectorStore(VectorStore):
     def __init__(self, documents: list[WorldCupDocument]):
         self.documents = documents
         self.embedder = get_embedder()
-        self.embeddings = {
-            doc.doc_id: np.array(self.embedder.embed(doc.text, input_type="passage"), dtype=np.float32)
-            for doc in documents
-        }
+        self.embeddings = self._embed_documents(documents)
 
     def search(self, query: str, filters: dict[str, object], top_k: int) -> list[RetrievedDocument]:
         query_vector = np.array(self.embedder.embed(query, input_type="query"), dtype=np.float32)
@@ -43,6 +40,17 @@ class InMemoryVectorStore(VectorStore):
                 return False
         return True
 
+    def _embed_documents(self, documents: list[WorldCupDocument]) -> dict[str, np.ndarray]:
+        embeddings: dict[str, np.ndarray] = {}
+        batch_size = 64
+        for start in range(0, len(documents), batch_size):
+            batch = documents[start : start + batch_size]
+            vectors = self.embedder.embed_many([doc.text for doc in batch], input_type="passage")
+            embeddings.update(
+                {doc.doc_id: np.array(vector, dtype=np.float32) for doc, vector in zip(batch, vectors)}
+            )
+        return embeddings
+
 
 class MilvusVectorStore(VectorStore):
     def search(self, query: str, filters: dict[str, object], top_k: int) -> list[RetrievedDocument]:
@@ -51,4 +59,4 @@ class MilvusVectorStore(VectorStore):
         )
 
 
-vector_store = InMemoryVectorStore(MOCK_DOCUMENTS)
+vector_store = InMemoryVectorStore(load_documents())

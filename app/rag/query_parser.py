@@ -27,6 +27,7 @@ VALID_MEN_YEARS = {
     2014,
     2018,
     2022,
+    2026,
 }
 
 
@@ -60,4 +61,3 @@ def parse_query(message: str) -> ParsedQuery:
         filters=filters,
         invalid_reason=invalid_reason,
     )
-

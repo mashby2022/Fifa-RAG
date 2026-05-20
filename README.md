@@ -48,6 +48,12 @@ Try:
 python scripts/smoke_test_questions.py
 ```
 
+Build the real-data document corpus from the upstream GitHub datasets:
+
+```bash
+python scripts/ingest_dataset.py
+```
+
 Run tests:
 
 ```bash
@@ -145,16 +151,16 @@ Partner datasets should land in `data/raw/` and be normalized into generated doc
 
 See [docs/DATA_CONTRACT.md](docs/DATA_CONTRACT.md).
 
-Current placeholder ingestion:
+Current ingestion downloads from `jfjelstul/worldcup` and `openfootball/worldcup`:
 
 ```bash
 python scripts/ingest_dataset.py
 ```
 
-This writes mock generated documents to:
+This writes generated documents to:
 
 ```text
-data/generated_docs/mock_worldcup_docs.jsonl
+data/generated_docs/worldcup_docs.jsonl
 ```
 
 ## Milvus

@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     vector_backend: str = "memory"
     milvus_uri: str = "http://localhost:19530"
     milvus_collection: str = "worldcup_docs"
+    generated_docs_path: str = "data/generated_docs/worldcup_docs.jsonl"
 
     embedding_provider: str = "local_hash"
     embedding_dim: int = 384

@@ -16,6 +16,9 @@ class Embedder(ABC):
     def embed(self, text: str, input_type: str = "query") -> list[float]:
         raise NotImplementedError
 
+    def embed_many(self, texts: list[str], input_type: str = "query") -> list[list[float]]:
+        return [self.embed(text, input_type=input_type) for text in texts]
+
 
 class LocalHashEmbedder(Embedder):
     """Deterministic local embedder for demos and tests.
@@ -57,9 +60,12 @@ class NvidiaEmbedder(Embedder):
         self.timeout_seconds = timeout_seconds
 
     def embed(self, text: str, input_type: str = "query") -> list[float]:
+        return self.embed_many([text], input_type=input_type)[0]
+
+    def embed_many(self, texts: list[str], input_type: str = "query") -> list[list[float]]:
         payload = {
             "model": self.model,
-            "input": [text],
+            "input": texts,
             "input_type": input_type,
             "modality": "text",
         }
@@ -74,7 +80,7 @@ class NvidiaEmbedder(Embedder):
             )
         response.raise_for_status()
         body = response.json()
-        return body["data"][0]["embedding"]
+        return [item["embedding"] for item in body["data"]]
 
 
 def get_embedder() -> Embedder:
