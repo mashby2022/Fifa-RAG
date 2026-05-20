@@ -26,3 +26,32 @@ def test_explicit_web_check_routes_to_web_tool_with_previous_context(monkeypatch
     assert response.tool_calls[0]["name"] == "web_search"
     assert "Argentina won the 2022 FIFA World Cup" in seen["question"]
     assert response.retrieval_diagnostics["tool_route"] == "web_search"
+
+
+def test_low_information_web_followup_builds_verification_query(monkeypatch) -> None:
+    service = RagService()
+    service.last_user_message = "which world cup did Nigeria place the highest"
+    service.last_answer = (
+        "Nigeria's highest World Cup finish in the men's tournament was round of 16, "
+        "reached at 1994 FIFA Men's World Cup, 1998 FIFA Men's World Cup, 2014 FIFA Men's World Cup."
+    )
+    seen: dict[str, str] = {}
+
+    def fake_answer(question: str) -> ToolAnswer:
+        seen["question"] = question
+        return ToolAnswer(
+            tool_name="web_search",
+            answer="Web confirms Nigeria reached the round of 16 in 1994, 1998, and 2014.",
+            citations=[{"table": "web_search", "record_id": "https://example.com"}],
+            diagnostics={"provider": "test", "results": 1},
+        )
+
+    monkeypatch.setattr(web_search_module.web_search_tool, "answer", fake_answer)
+
+    response = service.answer(ChatRequest(message="do a web search and find out"))
+
+    assert response.tool_calls[0]["name"] == "web_search"
+    assert "Nigeria" in seen["question"]
+    assert "round of 16" in seen["question"]
+    assert "1994 FIFA" in seen["question"]
+    assert "FIFA World Cup record results history" in seen["question"]

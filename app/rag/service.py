@@ -111,6 +111,8 @@ class RagService:
         )
 
     def _web_followup_query(self, message: str) -> str:
+        if self.last_answer and self.last_user_message and _is_web_check_followup(message):
+            return _verification_query(self.last_user_message, self.last_answer)
         if self.last_answer:
             return f"{self.last_user_message or ''} {self.last_answer} {message}".strip()
         return message
@@ -140,3 +142,25 @@ class RagService:
 
 
 rag_service = RagService()
+
+
+def _is_web_check_followup(message: str) -> bool:
+    lowered = message.lower()
+    low_information_terms = (
+        "find out",
+        "check",
+        "confirm",
+        "verify",
+        "make sure",
+    )
+    web_terms = ("web", "online", "search")
+    return any(term in lowered for term in web_terms) and any(term in lowered for term in low_information_terms)
+
+
+def _verification_query(previous_question: str, previous_answer: str) -> str:
+    answer = previous_answer.replace("'", "")
+    question = previous_question.replace("'", "")
+    query = f"{question} {answer}"
+    if "highest world cup finish" in answer.lower() or "best finish" in answer.lower():
+        query += " FIFA World Cup record results history"
+    return " ".join(query.split())

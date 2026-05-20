@@ -55,11 +55,13 @@ class WebSearchTool:
             "query": question,
             "search_depth": "basic",
             "max_results": 3,
+            "include_answer": True,
         }
         with httpx.Client(timeout=self.timeout_seconds) as client:
             response = client.post(self.url, json=payload)
         response.raise_for_status()
-        results = response.json().get("results", [])
+        body = response.json()
+        results = body.get("results", [])
         if not results:
             return None
 
@@ -72,11 +74,13 @@ class WebSearchTool:
             snippets.append(f"{title}: {content}")
             citations.append({"table": "web_search", "record_id": url or title})
 
+        answer = body.get("answer")
+        summary = f"Web search found: {answer}" if answer else "Web search fallback found: " + " ".join(snippets)
         return ToolAnswer(
             tool_name="web_search",
-            answer="Web search fallback found: " + " ".join(snippets),
+            answer=summary,
             citations=citations,
-            diagnostics={"provider": self.provider, "results": len(results)},
+            diagnostics={"provider": self.provider, "results": len(results), "query": question},
         )
 
 
