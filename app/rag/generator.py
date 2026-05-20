@@ -1,3 +1,5 @@
+from app.core.config import settings
+from app.rag.nvidia_generator import NvidiaGenerator
 from app.rag.query_parser import ParsedQuery
 from app.schemas.api import ChatResponse, Citation
 from app.schemas.documents import RetrievedDocument
@@ -41,11 +43,11 @@ def generate_answer(parsed: ParsedQuery, retrieved: list[RetrievedDocument]) -> 
             filters=parsed.filters,
         )
 
-    used = retrieved[:1]
+    used = retrieved[:3] if settings.generator_provider == "nvidia" else retrieved[:1]
     for item in used:
         item.used = True
 
-    answer = _compose_extractive_answer(used)
+    answer = _compose_nvidia_answer(parsed, used) if settings.generator_provider == "nvidia" else _compose_extractive_answer(used)
     citations = [
         Citation(doc_id=item.doc.doc_id, title=item.doc.title, source_refs=item.doc.source_refs)
         for item in used
@@ -65,3 +67,11 @@ def _compose_extractive_answer(retrieved: list[RetrievedDocument]) -> str:
         return retrieved[0].doc.text
     facts = " ".join(item.doc.text for item in retrieved)
     return facts
+
+
+def _compose_nvidia_answer(parsed: ParsedQuery, retrieved: list[RetrievedDocument]) -> str:
+    try:
+        answer = NvidiaGenerator().answer(parsed, retrieved)
+    except Exception:
+        answer = _compose_extractive_answer(retrieved[:1])
+    return answer or _compose_extractive_answer(retrieved[:1])

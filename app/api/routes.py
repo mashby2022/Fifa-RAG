@@ -14,6 +14,8 @@ def health() -> HealthResponse:
         app=settings.app_name,
         vector_backend=settings.vector_backend,
         embedding_provider=settings.embedding_provider,
+        generator_provider=settings.generator_provider,
+        nvidia_configured=bool(settings.nvidia_api_key),
     )
 
 
@@ -31,4 +33,3 @@ def demo_questions() -> list[str]:
 @router.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest) -> ChatResponse:
     return rag_service.answer(request)
-

@@ -130,3 +130,5 @@ For example, after deploying on Render, this will look like:
 ```text
 VITE_API_BASE_URL=https://worldcup-rag-api.onrender.com
 ```
+
+NVIDIA/NIM keys belong only in the backend host. Do not add `NVIDIA_API_KEY` to Lovable.

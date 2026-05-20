@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     embedding_provider: str = "local_hash"
     embedding_dim: int = 384
     nvidia_api_key: str = ""
+    nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
+    nvidia_timeout_seconds: float = 30.0
     nvidia_embedding_model: str = "nvidia/nv-embedqa-e5-v5"
 
     generator_provider: str = "extractive"
@@ -41,4 +43,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-

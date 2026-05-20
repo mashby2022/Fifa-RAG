@@ -11,8 +11,16 @@ services:
       - key: VECTOR_BACKEND
         value: memory
       - key: EMBEDDING_PROVIDER
-        value: local_hash
+        value: nvidia
       - key: GENERATOR_PROVIDER
-        value: extractive
+        value: nvidia
+      - key: NVIDIA_BASE_URL
+        value: https://integrate.api.nvidia.com/v1
+      - key: NVIDIA_EMBEDDING_MODEL
+        value: nvidia/nv-embedqa-e5-v5
+      - key: NVIDIA_GENERATOR_MODEL
+        value: meta/llama-3.1-70b-instruct
+      - key: NVIDIA_API_KEY
+        sync: false
       - key: CORS_ORIGINS
         sync: false

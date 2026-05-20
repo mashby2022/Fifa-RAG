@@ -18,8 +18,12 @@ Start command: uvicorn app.main:app --host 0.0.0.0 --port $PORT
 ```text
 APP_ENV=production
 VECTOR_BACKEND=memory
-EMBEDDING_PROVIDER=local_hash
-GENERATOR_PROVIDER=extractive
+EMBEDDING_PROVIDER=nvidia
+GENERATOR_PROVIDER=nvidia
+NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
+NVIDIA_EMBEDDING_MODEL=nvidia/nv-embedqa-e5-v5
+NVIDIA_GENERATOR_MODEL=meta/llama-3.1-70b-instruct
+NVIDIA_API_KEY=<your-nvidia-nim-key>
 CORS_ORIGINS=https://fifa-fan-chatter.lovable.app
 ```
 
@@ -48,4 +52,5 @@ docker run --env-file .env -p 8000:8000 worldcup-rag-api
 - Keep `VECTOR_BACKEND=memory` for the first hosted mock-data demo.
 - Move to `VECTOR_BACKEND=milvus` once a hosted Milvus/Zilliz endpoint is available.
 - Add the final Lovable domains to `CORS_ORIGINS`.
+- Store `NVIDIA_API_KEY` only in Render, never in Lovable or GitHub.
 - Do not commit `.env` or partner raw datasets.

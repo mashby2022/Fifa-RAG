@@ -130,12 +130,13 @@ Use [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Render or container deployment.
 GitHub repo -> Render backend -> Lovable frontend
 ```
 
-For the first hosted demo, keep the backend in mock-data mode:
+For the first hosted demo, keep the backend in mock-data mode but use NVIDIA-hosted NIM for embeddings and generation:
 
 ```text
 VECTOR_BACKEND=memory
-EMBEDDING_PROVIDER=local_hash
-GENERATOR_PROVIDER=extractive
+EMBEDDING_PROVIDER=nvidia
+GENERATOR_PROVIDER=nvidia
+NVIDIA_API_KEY=<set-in-render-only>
 ```
 
 ## Data Integration

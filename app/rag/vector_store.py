@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
-from app.rag.embeddings import embedder
+from app.rag.embeddings import get_embedder
 from app.rag.mock_data import MOCK_DOCUMENTS
 from app.schemas.documents import RetrievedDocument, WorldCupDocument
 
@@ -16,10 +16,14 @@ class VectorStore(ABC):
 class InMemoryVectorStore(VectorStore):
     def __init__(self, documents: list[WorldCupDocument]):
         self.documents = documents
-        self.embeddings = {doc.doc_id: np.array(embedder.embed(doc.text), dtype=np.float32) for doc in documents}
+        self.embedder = get_embedder()
+        self.embeddings = {
+            doc.doc_id: np.array(self.embedder.embed(doc.text, input_type="passage"), dtype=np.float32)
+            for doc in documents
+        }
 
     def search(self, query: str, filters: dict[str, object], top_k: int) -> list[RetrievedDocument]:
-        query_vector = np.array(embedder.embed(query), dtype=np.float32)
+        query_vector = np.array(self.embedder.embed(query, input_type="query"), dtype=np.float32)
         results: list[RetrievedDocument] = []
         for doc in self.documents:
             if not self._matches_filters(doc, filters):
@@ -48,4 +52,3 @@ class MilvusVectorStore(VectorStore):
 
 
 vector_store = InMemoryVectorStore(MOCK_DOCUMENTS)
-
