@@ -1,4 +1,4 @@
-# World Cup RAG Shell with Milvus
+# World Cup RAG Agent 
 
 A shareable, Lovable-ready backend for a NeMo/NIM-aligned World Cup RAG demo. The product bar is the Media Intelligence NAT demo: clear answers, visible evidence, simple frontend flow, and behavior reviewers can inspect.
 
