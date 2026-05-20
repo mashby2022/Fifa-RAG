@@ -16,6 +16,7 @@ Start command: uvicorn app.main:app --host 0.0.0.0 --port $PORT
 4. Set environment variables:
 
 ```text
+PYTHON_VERSION=3.11.11
 APP_ENV=production
 VECTOR_BACKEND=memory
 EMBEDDING_PROVIDER=nvidia
